@@ -1,0 +1,49 @@
+# ADARE GENERAL HOSPITAL PLATFORM — production composition
+# Usage: cp server/.env.example server/.env  (fill secrets)  → docker compose up -d
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: adare_platform
+      POSTGRES_USER: agh
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./server/db:/docker-entrypoint-initdb.d:ro   # 001_schema.sql + 002_seed.sql on first boot
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agh -d adare_platform"]
+      interval: 10s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://agh:${DB_PASSWORD}@db:5432/adare_platform
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?set REFRESH_TOKEN_SECRET}
+      SECURE_COOKIES: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/server/storage
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/adare.conf:/etc/nginx/conf.d/default.conf:ro
+      # mount TLS certs (e.g. certbot volume) here
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  uploads:

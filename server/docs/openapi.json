@@ -1,0 +1,89 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Adare General Hospital Platform API",
+    "version": "1.0.0",
+    "description": "REST API for the Adare General Hospital digital platform (Hawassa, Sidama Region, Ethiopia). All responses use the envelope { ok, data, message } or { ok:false, code, error }. Protected endpoints require Authorization: Bearer <access_token>; refresh tokens rotate via HTTP-only cookie on /api/auth."
+  },
+  "servers": [{ "url": "/api" }],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" } },
+    "schemas": {
+      "Envelope": { "type": "object", "properties": { "ok": { "type": "boolean" }, "data": { "type": "object" }, "message": { "type": "string" } } },
+      "Error": { "type": "object", "properties": { "ok": { "type": "boolean", "example": false }, "code": { "type": "string" }, "error": { "type": "string" } } },
+      "AppointmentCreate": {
+        "type": "object",
+        "required": ["patient_name", "phone", "preferred_date"],
+        "properties": {
+          "patient_name": { "type": "string" }, "phone": { "type": "string", "example": "0911223344" },
+          "email": { "type": "string" }, "gender": { "enum": ["male", "female", "other"] },
+          "date_of_birth": { "type": "string", "format": "date" },
+          "department_id": { "type": "integer" }, "doctor_id": { "type": "integer" }, "service_id": { "type": "integer" },
+          "preferred_date": { "type": "string", "format": "date" }, "preferred_time": { "type": "string" },
+          "reason": { "type": "string" }, "is_emergency": { "type": "boolean" },
+          "insurance_type": { "enum": ["none", "cbhi", "private", "other"] }, "notes": { "type": "string" }
+        }
+      },
+      "PaymentCreate": {
+        "type": "object",
+        "required": ["payer_name", "phone", "amount", "method"],
+        "properties": {
+          "payer_name": { "type": "string" }, "phone": { "type": "string" },
+          "amount": { "type": "number" }, "method": { "enum": ["telebirr", "bank_transfer", "card", "cash", "cbhi", "other"] },
+          "provider_ref": { "type": "string" }, "appointment_ref": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": { "get": { "summary": "Health check", "responses": { "200": { "description": "Healthy" }, "503": { "description": "Degraded" } } } },
+    "/auth/login": { "post": { "summary": "Staff or patient login", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "required": ["username", "password"], "properties": { "username": { "type": "string" }, "password": { "type": "string" } } } } } }, "responses": { "200": { "description": "access_token + user" }, "401": { "description": "Invalid credentials" }, "429": { "description": "Locked / rate-limited" } } } },
+    "/auth/register": { "post": { "summary": "Patient self-registration", "responses": { "201": { "description": "Account + patient number" }, "409": { "description": "Duplicate phone" } } } },
+    "/auth/refresh": { "post": { "summary": "Rotate refresh token (cookie) → new access token", "responses": { "200": { "description": "New access token" }, "401": { "description": "Expired" } } } },
+    "/auth/logout": { "post": { "security": [{ "bearerAuth": [] }], "summary": "Sign out and revoke refresh token", "responses": { "200": { "description": "OK" } } } },
+    "/auth/me": { "get": { "security": [{ "bearerAuth": [] }], "summary": "Current session", "responses": { "200": { "description": "User (+patient when role=patient)" } } } },
+    "/auth/change-password": { "post": { "security": [{ "bearerAuth": [] }], "summary": "Change own password", "responses": { "200": { "description": "OK" } } } },
+    "/settings": { "get": { "summary": "Public hospital settings & statistics", "responses": { "200": { "description": "Key-value settings" } } } },
+    "/departments": { "get": { "summary": "List departments", "responses": { "200": { "description": "Departments" } } } },
+    "/services": { "get": { "summary": "Searchable services directory", "parameters": [{ "name": "q", "in": "query" }, { "name": "department", "in": "query" }], "responses": { "200": { "description": "Services" } } } },
+    "/doctors": { "get": { "summary": "Doctor directory", "parameters": [{ "name": "q", "in": "query" }, { "name": "department", "in": "query" }], "responses": { "200": { "description": "Doctors" } } } },
+    "/leaders": { "get": { "summary": "Hospital leadership (current & former)", "responses": { "200": { "description": "Leaders" } } } },
+    "/gallery": { "get": { "summary": "Facility gallery", "responses": { "200": { "description": "Images" } } } },
+    "/news": { "get": { "summary": "Published news (paginated)", "parameters": [{ "name": "page", "in": "query" }, { "name": "category", "in": "query" }, { "name": "q", "in": "query" }], "responses": { "200": { "description": "Articles" } } } },
+    "/news/{slug}": { "get": { "summary": "Single article", "parameters": [{ "name": "slug", "in": "path", "required": true }], "responses": { "200": { "description": "Article" }, "404": { "description": "Not found" } } } },
+    "/health-articles": { "get": { "summary": "Health education articles", "responses": { "200": { "description": "Articles" } } } },
+    "/search": { "get": { "summary": "Global public search", "parameters": [{ "name": "q", "in": "query", "required": true }], "responses": { "200": { "description": "Mixed results" } } } },
+    "/contact": { "post": { "summary": "Submit contact message (stored, admin inbox)", "responses": { "200": { "description": "Received" } } } },
+    "/appointments": {
+      "post": { "summary": "Book appointment → AGH-APT reference", "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppointmentCreate" } } } }, "responses": { "201": { "description": "PENDING appointment" }, "409": { "description": "Duplicate" }, "422": { "description": "Validation" } } },
+      "get": { "security": [{ "bearerAuth": [] }], "summary": "Staff appointment list (filters: status, date, department_id, doctor_id, q)", "responses": { "200": { "description": "Appointments" }, "403": { "description": "Role not allowed" } } }
+    },
+    "/appointments/status": { "get": { "summary": "Public status lookup (reference + phone)", "responses": { "200": { "description": "Status" }, "404": { "description": "Not found" } } } },
+    "/appointments/{reference}": { "patch": { "security": [{ "bearerAuth": [] }], "summary": "Workflow action: confirm|reject|reschedule|checkin|start|complete|cancel|noshow", "responses": { "200": { "description": "New status" }, "409": { "description": "Invalid transition" } } } },
+    "/appointments/{reference}/history": { "get": { "security": [{ "bearerAuth": [] }], "summary": "Status history", "responses": { "200": { "description": "Events" } } } },
+    "/patients/me": {
+      "get": { "security": [{ "bearerAuth": [] }], "summary": "Patient portal: own profile + appointments + payments + notifications", "responses": { "200": { "description": "Profile" } } },
+      "patch": { "security": [{ "bearerAuth": [] }], "summary": "Update own profile", "responses": { "200": { "description": "Updated" } } }
+    },
+    "/patients": {
+      "post": { "security": [{ "bearerAuth": [] }], "summary": "Staff: register patient → AGH-PAT number", "responses": { "201": { "description": "Patient" } } },
+      "get": { "security": [{ "bearerAuth": [] }], "summary": "Staff: search patients", "parameters": [{ "name": "q", "in": "query", "required": true }], "responses": { "200": { "description": "Matches" } } }
+    },
+    "/payments": {
+      "post": { "summary": "Submit payment → AGH-PAY reference (PENDING)", "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentCreate" } } } }, "responses": { "201": { "description": "Payment" }, "409": { "description": "Duplicate provider ref" } } },
+      "get": { "security": [{ "bearerAuth": [] }], "summary": "Finance/reception payment list", "responses": { "200": { "description": "Payments" } } }
+    },
+    "/payments/{reference}": { "patch": { "security": [{ "bearerAuth": [] }], "summary": "Finance: SUCCESSFUL | FAILED | CANCELLED | REFUNDED", "responses": { "200": { "description": "Updated" }, "409": { "description": "Invalid transition" } } } },
+    "/payments/summary": { "get": { "security": [{ "bearerAuth": [] }], "summary": "Revenue KPIs", "responses": { "200": { "description": "Summary" } } } },
+    "/payments/export/csv": { "get": { "security": [{ "bearerAuth": [] }], "summary": "CSV export (finance)", "responses": { "200": { "description": "CSV file" } } } },
+    "/admin/dashboard": { "get": { "security": [{ "bearerAuth": [] }], "summary": "KPIs + chart data", "responses": { "200": { "description": "Dashboard" } } } },
+    "/admin/notifications": { "get": { "security": [{ "bearerAuth": [] }], "summary": "Staff notification feed", "responses": { "200": { "description": "Feed + unread count" } } } },
+    "/admin/users": {
+      "get": { "security": [{ "bearerAuth": [] }], "summary": "List staff (admin)", "responses": { "200": { "description": "Users" } } },
+      "post": { "security": [{ "bearerAuth": [] }], "summary": "Create staff user (admin)", "responses": { "201": { "description": "User" } } }
+    },
+    "/admin/news": { "get": { "security": [{ "bearerAuth": [] }], "summary": "CMS: list articles" }, "post": { "security": [{ "bearerAuth": [] }], "summary": "CMS: create article" } },
+    "/admin/audit": { "get": { "security": [{ "bearerAuth": [] }], "summary": "Audit log (admin only)", "responses": { "200": { "description": "Log entries" } } } },
+    "/events": { "get": { "security": [{ "bearerAuth": [] }], "summary": "SSE stream: appointment / payment / notification events", "responses": { "200": { "description": "text/event-stream" } } } }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "1. Install server dependencies",
+      "type": "shell",
+      "command": "npm install",
+      "options": { "cwd": "${workspaceFolder}/server" },
+      "problemMatcher": []
+    },
+    {
+      "label": "2. Install web dependencies",
+      "type": "shell",
+      "command": "npm install",
+      "options": { "cwd": "${workspaceFolder}/web" },
+      "problemMatcher": []
+    },
+    {
+      "label": "3. Seed dev accounts",
+      "type": "shell",
+      "command": "node scripts/seed-dev.js",
+      "options": { "cwd": "${workspaceFolder}/server" },
+      "problemMatcher": []
+    },
+    {
+      "label": "4. Start API server",
+      "type": "shell",
+      "command": "node src/index.js",
+      "options": { "cwd": "${workspaceFolder}/server" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "5. Start web dev server (hot reload)",
+      "type": "shell",
+      "command": "npx vite",
+      "options": { "cwd": "${workspaceFolder}/web" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "6. Build web for production",
+      "type": "shell",
+      "command": "npx vite build",
+      "options": { "cwd": "${workspaceFolder}/web" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run both (API + web dev)",
+      "dependsOn": ["4. Start API server", "5. Start web dev server (hot reload)"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    }
+  ]
+}
