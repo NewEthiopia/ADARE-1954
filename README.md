@@ -50,16 +50,9 @@ docker compose up -d --build
 docker compose exec api node scripts/create-admin.js admin "Hospital Administrator"
 ```
 
-## Dev/test accounts (created by seed-dev.js — NEVER use in production)
+## Development
 
-| username    | role            | password              |
-|-------------|-----------------|-----------------------|
-| admin       | hospital_admin  | AdareAdmin#2026       |
-| reception1  | receptionist    | AdareReception#2026   |
-| doctor1     | doctor          | AdareDoctor#2026      |
-| nurse1      | nurse           | AdareNurse#2026       |
-| finance1    | finance         | AdareFinance#2026     |
-| content1    | content_manager | AdareContent#2026     |
+Test accounts for local development are documented in `.dev-accounts.md` (not committed to git).
 
 ## Key API endpoints (full docs: `/api/docs/openapi.json`)
 
