@@ -99,7 +99,7 @@ export default function Home() {
           <Link to="/doctors" className="quick-card"><span className="ico">🩺</span><h3>{tr('findDoctor')}</h3><p>Search our healthcare professionals by specialty.</p><span className="go">Search →</span></Link>
           <Link to="/portal" className="quick-card ochre"><span className="ico">👤</span><h3>{tr('portal')}</h3><p>Track appointments, payments and notifications.</p><span className="go">Sign in →</span></Link>
           <Link to="/emergency" className="quick-card red"><span className="ico">🚑</span><h3>{tr('emergency')}</h3><p>Open 24 hours, every day. Come directly or call.</p><span className="go">Emergency info →</span></Link>
-          <Link to="/services?department=pharmacy" className="quick-card green"><span className="ico">💊</span><h3>{tr('pharmacy')}</h3><p>OPD, emergency, inpatient and community pharmacies.</p><span className="go">Details →</span></Link>
+          <Link to="/services?department=pharmacy" className="quick-card green"><span className="ico">💊</span><h3>{tr('pharmacy')}</h3><p>Six units: OPD (new building), Emergency 24/7, Inpatient, ART, Community One &amp; Two.</p><span className="go">Details →</span></Link>
           <Link to="/services?department=laboratory" className="quick-card"><span className="ico">🔬</span><h3>{tr('laboratory')}</h3><p>EAS-accredited laboratory with GeneXpert testing.</p><span className="go">Details →</span></Link>
         </div>
       </div>
