@@ -4,6 +4,17 @@ import { get, initials } from '../lib/api.js';
 import { useT, useSettings } from '../components/Layout.jsx';
 import LeadershipCarousel from '../components/LeadershipCarousel.jsx';
 
+const fallbackNews = [{
+  id: 'fallback-campaign',
+  slug: 'free-kiremt-health-screening-campaign',
+  title: 'ነፃ የጤና ምርመራ! Free Kiremt Volunteer Health Screening Campaign',
+  excerpt: 'Adare General Hospital invites the community to free health screening services under the kiremt goodwill program — blood pressure, diabetes, cervical and breast cancer screening, eye and ear examinations, HIV and hepatitis testing, blood donation and more.',
+  image_path: '/uploads/news/free-screening-campaign.jpg',
+  is_featured: true,
+  category: 'Notices',
+  publish_at: '2026-08-15T00:00:00.000Z',
+}];
+
 function CountUp({ value }) {
   const [n, setN] = useState(0);
   const ref = useRef(null);
@@ -34,7 +45,7 @@ function FeaturedCampaign() {
   useEffect(() => {
     get('/news?per_page=6').then(d => {
       setFeatured((d.news || []).find(n => n.is_featured && n.image_path) || null);
-    }).catch(() => {});
+    }).catch(() => setFeatured(fallbackNews[0]));
   }, []);
   if (!featured) return null;
   return (
@@ -74,7 +85,7 @@ export default function Home() {
   useEffect(() => {
     get('/services').then(d => setServices((d.services || []).slice(0, 6))).catch(() => {});
     get('/doctors').then(d => setDoctors((d.doctors || []).slice(0, 3))).catch(() => {});
-    get('/news?per_page=3').then(d => setNews(d.news || [])).catch(() => {});
+    get('/news?per_page=3').then(d => setNews(d.news?.length ? d.news : fallbackNews)).catch(() => setNews(fallbackNews));
   }, []);
   const phone = (settings.phone_emergency || '').replace(/\s/g, '');
 

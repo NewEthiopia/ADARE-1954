@@ -4,6 +4,19 @@ let accessToken = null;
 let currentUser = null;
 let currentPatient = null;
 
+function repairLegacyText(value) {
+  if (typeof value === 'string') {
+    return value
+      .replace(/\u129d\u1743/g, '\u1290\u1343')
+      .replace(/\u00e1\u0160\u0090\u00e1\u008d\u0192/g, '\u1290\u1343');
+  }
+  if (Array.isArray(value)) return value.map(repairLegacyText);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, repairLegacyText(item)]));
+  }
+  return value;
+}
+
 export const auth = {
   get user() { return currentUser; },
   get patient() { return currentPatient; },
@@ -38,7 +51,7 @@ export async function api(path, options = {}) {
     err.status = res.status; err.code = payload.code;
     throw err;
   }
-  return payload.data ?? payload;
+  return repairLegacyText(payload.data ?? payload);
 }
 
 export async function tryRefresh() {

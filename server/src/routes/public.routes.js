@@ -2,11 +2,31 @@
 // news, health education, leaders, gallery, settings/stats, contact, search.
 import { Router } from 'express';
 import { z } from 'zod';
+import iconv from 'iconv-lite';
 import { q, one } from '../db.js';
 import { ok, fail, wrap, validate } from '../http.js';
 import { notifyRole } from '../notify.js';
 
 export const publicRouter = Router();
+
+const decodeLegacyText = (value) => {
+  if (value == null) return value;
+  const codePage = [
+    0x20ac, 0x81, 0x201a, 0x192, 0x201e, 0x2026, 0x2020, 0x2021,
+    0x2c6, 0x2030, 0x160, 0x2039, 0x152, 0x8d, 0x17d, 0x8f,
+    0x90, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
+    0x2dc, 0x2122, 0x161, 0x203a, 0x153, 0x9d, 0x17e, 0x178,
+  ];
+  const mojibake = [...Buffer.from(value, 'base64')]
+    .map((byte) => String.fromCodePoint(byte >= 0x80 && byte <= 0x9f ? codePage[byte - 0x80] : byte))
+    .join('');
+  const bytes = Buffer.from([...mojibake].flatMap((character) => {
+    const code = character.codePointAt(0);
+    if (code >= 0x80 && code <= 0x9f) return [code];
+    return [...iconv.encode(character, 'win1252')];
+  }));
+  return iconv.decode(bytes, 'utf8').replace(/\u129d\u1743/g, '\u1290\u1343');
+};
 
 publicRouter.get('/settings', wrap(async (_req, res) => {
   // internal_* keys are LAN-only system links for staff — never exposed publicly
@@ -71,21 +91,45 @@ publicRouter.get('/news', wrap(async (req, res) => {
   const base = `FROM news n LEFT JOIN news_categories c ON c.id = n.category_id WHERE ${where.join(' AND ')}`;
   const total = Number((await q(`SELECT count(*) ${base}`, params)).rows[0].count);
   const rows = (await q(
-    `SELECT n.id, n.slug, n.title, n.excerpt, n.image_path, n.is_featured, n.publish_at, n.created_at,
+    `SELECT n.id, n.slug,
+            encode(convert_to(n.title, 'WIN1252'), 'base64') AS title_b64,
+            encode(convert_to(n.excerpt, 'WIN1252'), 'base64') AS excerpt_b64,
+            n.image_path, n.is_featured, n.publish_at, n.created_at,
             c.name AS category, c.slug AS category_slug
      ${base} ORDER BY coalesce(n.publish_at, n.created_at) DESC
      LIMIT ${per} OFFSET ${(page - 1) * per}`, params)).rows;
-  ok(res, { news: rows, total, page, per_page: per }, 'News');
+  ok(res, {
+    news: rows.map(({ title_b64, excerpt_b64, ...row }) => ({
+      ...row,
+      title: decodeLegacyText(title_b64),
+      excerpt: decodeLegacyText(excerpt_b64),
+    })),
+    total,
+    page,
+    per_page: per,
+  }, 'News');
 }));
 
 publicRouter.get('/news/:slug', wrap(async (req, res) => {
   const row = await one(
-    `SELECT n.id, n.slug, n.title, n.excerpt, n.body_html, n.image_path, n.publish_at, n.created_at,
+    `SELECT n.id, n.slug,
+            encode(convert_to(n.title, 'WIN1252'), 'base64') AS title_b64,
+            encode(convert_to(n.excerpt, 'WIN1252'), 'base64') AS excerpt_b64,
+            encode(convert_to(n.body_html, 'WIN1252'), 'base64') AS body_html_b64,
+            n.image_path, n.publish_at, n.created_at,
             c.name AS category, u.full_name AS author
      FROM news n LEFT JOIN news_categories c ON c.id=n.category_id LEFT JOIN users u ON u.id=n.author_id
      WHERE n.slug=$1 AND n.deleted_at IS NULL AND n.status='PUBLISHED'`, [req.params.slug]);
   if (!row) throw fail(404, 'NOT_FOUND', 'Article not found.');
-  ok(res, { article: row }, 'Article');
+  const { title_b64, excerpt_b64, body_html_b64, ...article } = row;
+  ok(res, {
+    article: {
+      ...article,
+      title: decodeLegacyText(title_b64),
+      excerpt: decodeLegacyText(excerpt_b64),
+      body_html: decodeLegacyText(body_html_b64),
+    },
+  }, 'Article');
 }));
 
 publicRouter.get('/health-articles', wrap(async (req, res) => {

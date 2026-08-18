@@ -1,7 +1,11 @@
 import pg from 'pg';
 import { config } from './config.js';
 
-export const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
+export const pool = new pg.Pool({
+  connectionString: config.databaseUrl,
+  options: '-c client_encoding=WIN1252',
+  max: 10,
+});
 
 export async function q(text, params = []) {
   return pool.query(text, params);

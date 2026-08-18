@@ -14,6 +14,24 @@ const AUTOPLAY_MS = 5000;
 const RESUME_MS = 5000;
 const DRAG_THRESHOLD = 60; // px before a drag commits to a slide change
 
+const fallbackLeaders = [
+  ['Fikru Tesfaye', '1st', 'fikru-tesfaye'],
+  ['Muntash Birhanu', '2nd', 'muntash-birhanu'],
+  ['Firew Hanke', '3rd', 'firew-hanke'],
+  ['Maradona Zeleke', '4th', 'maradona-zeleke'],
+  ['Zenebe Turiche', '5th', 'zenebe-turiche'],
+  ['Yirdachew Anato', '6th', 'yirdachew-anato'],
+].map(([full_name, manager_number, photo]) => ({
+  id: `fallback-${manager_number}`,
+  full_name,
+  manager_number,
+  position: 'Hospital Manager',
+  period: 'Adare General Hospital',
+  active: true,
+  is_current: manager_number === '6th',
+  photo_url: `/uploads/leaders/${photo}.jpg`,
+}));
+
 /** Shortest signed distance from active index to i on a ring of n. */
 function ringOffset(i, active, n) {
   let d = (i - active) % n;
@@ -45,7 +63,7 @@ export default function LeadershipCarousel() {
   useEffect(() => {
     get('/leadership')
       .then(d => setLeaders((d.leadership || []).filter(l => l.active !== false)))
-      .catch(() => setLeaders([]));
+      .catch(() => setLeaders(fallbackLeaders));
   }, []);
 
   const goTo = useCallback((idx, userAction = true) => {
