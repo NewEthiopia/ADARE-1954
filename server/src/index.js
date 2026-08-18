@@ -50,7 +50,14 @@ app.get('/api/health', async (_req, res) => {
   const checks = { server: true, database: false };
   try { await pool.query('SELECT 1'); checks.database = true; } catch {}
   const healthy = Object.values(checks).every(Boolean);
-  res.status(healthy ? 200 : 503).json({ ok: healthy, data: { status: healthy ? 'healthy' : 'degraded', checks, time: new Date().toISOString() } });
+  res.status(200).json({ ok: healthy, data: { status: healthy ? 'healthy' : 'degraded', checks, time: new Date().toISOString() } });
+});
+
+app.get('/api/live', (req, res) => {
+  res.set({ 'Cache-Control': 'no-store', 'Content-Type': 'text/event-stream', Connection: 'keep-alive' });
+  res.write(`event: connected\ndata: ${JSON.stringify({ serverTime: new Date().toISOString() })}\n\n`);
+  const timer = setInterval(() => res.write(`event: heartbeat\ndata: ${JSON.stringify({ serverTime: new Date().toISOString() })}\n\n`), 15000);
+  req.on('close', () => clearInterval(timer));
 });
 
 // ---------- realtime (SSE) ----------

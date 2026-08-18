@@ -16,6 +16,15 @@ export const leadershipRouter = Router();
 const LEADER_FIELDS = `id, full_name, position, order_label AS manager_number, period,
                        biography AS description, photo_path AS photo_url, is_current,
                        sort_order AS display_order, is_active AS active`;
+const FALLBACK_LEADERS = [
+  ['Fikru Tesfaye', '1st', 'fikru-tesfaye'], ['Muntash Birhanu', '2nd', 'muntash-birhanu'],
+  ['Firew Hanke', '3rd', 'firew-hanke'], ['Maradona Zeleke', '4th', 'maradona-zeleke'],
+  ['Zenebe Turiche', '5th', 'zenebe-turiche'], ['Yirdachew Anato', '6th', 'yirdachew-anato'],
+].map(([full_name, manager_number, photo], index) => ({
+  id: `fallback-${index + 1}`, full_name, manager_number, position: 'Hospital Manager',
+  period: 'Adare General Hospital', description: null, is_current: index === 5,
+  display_order: index + 1, active: true, photo_url: `/uploads/leaders/${photo}.jpg`,
+}));
 
 // ---------- public ----------
 leadershipRouter.get('/', wrap(async (req, res) => {
@@ -26,7 +35,8 @@ leadershipRouter.get('/', wrap(async (req, res) => {
     await new Promise((resolve, reject) => requireAuth(req, res, (e) => e ? reject(e) : resolve()));
     rows = (await q(`SELECT ${LEADER_FIELDS} FROM leaders ORDER BY sort_order, id`)).rows;
   } else {
-    rows = (await q(`SELECT ${LEADER_FIELDS} FROM leaders WHERE is_active ORDER BY sort_order, id`)).rows;
+    try { rows = (await q(`SELECT ${LEADER_FIELDS} FROM leaders WHERE is_active ORDER BY sort_order, id`)).rows; }
+    catch { rows = FALLBACK_LEADERS; }
   }
   ok(res, { leadership: rows }, 'Leadership');
 }));

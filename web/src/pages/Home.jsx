@@ -79,6 +79,7 @@ function FeaturedCampaign() {
 export default function Home() {
   const tr = useT();
   const settings = useSettings();
+  const [liveAt, setLiveAt] = useState(null);
   const [services, setServices] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [news, setNews] = useState([]);
@@ -87,6 +88,15 @@ export default function Home() {
     get('/doctors').then(d => setDoctors((d.doctors || []).slice(0, 3))).catch(() => {});
     get('/news?per_page=3').then(d => setNews(d.news?.length ? d.news : fallbackNews)).catch(() => setNews(fallbackNews));
   }, []);
+  useEffect(() => {
+    const stream = new EventSource('/api/live');
+    const update = (event) => {
+      try { setLiveAt(JSON.parse(event.data).serverTime); } catch {}
+    };
+    stream.addEventListener('connected', update);
+    stream.addEventListener('heartbeat', update);
+    return () => stream.close();
+  }, []);
   const phone = (settings.phone_emergency || '').replace(/\s/g, '');
 
   return (
@@ -94,6 +104,7 @@ export default function Home() {
       <section className="hero">
         <div className="wrap">
           <div className="kicker">Public general hospital · Hawassa · Since 1954 E.C.</div>
+          <div className="live-pill" aria-live="polite"><span className="live-dot" /> {liveAt ? 'Live hospital updates connected' : 'Connecting to live updates...'}</div>
           <h1>ADARE GENERAL HOSPITAL<br /><em>{tr('tagline')}</em></h1>
           <p className="sub">{tr('heroSub')}</p>
           <div className="cta-row">

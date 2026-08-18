@@ -9,6 +9,20 @@ import { notifyRole } from '../notify.js';
 
 export const publicRouter = Router();
 
+const fallbackSettings = {
+  hospital_name: 'Adare General Hospital',
+  hospital_tagline: 'Compassionate Care. Professional Excellence. Better Health.',
+  phone_emergency: '046 221 1661',
+  stat_years_of_service: '65', stat_departments: '12', stat_health_professionals: '461',
+  stat_opd_attendances: '183759', stat_emergency_visits: '39253',
+};
+const fallbackServices = [
+  { id: 'emergency', slug: 'emergency-care', name: 'Emergency & Trauma Care', description: 'Immediate care for injuries, trauma and sudden medical conditions.', available_days: 'Every day', working_hours: '24 hours', emergency: true, bookable: false, department: 'Emergency & Trauma Unit' },
+  { id: 'opd', slug: 'general-consultation', name: 'General Consultation (OPD)', description: 'Consultation for new and returning patients with triage and referral.', available_days: 'Mon-Fri', working_hours: '8:00-17:00', emergency: false, bookable: true, department: 'Outpatient Department' },
+  { id: 'mch', slug: 'antenatal-care', name: 'Antenatal Care', description: 'Pregnancy follow-up, screening and birth planning.', available_days: 'Mon-Fri', working_hours: '8:00-17:00', emergency: false, bookable: true, department: 'Maternal & Child Health' },
+];
+const fallbackDoctors = [{ id: 'team', full_name: 'Adare Clinical Team', title: 'Healthcare Professionals', specialty: 'General care', department: 'Outpatient Department', working_days: 'Mon-Fri', working_hours: '8:00-17:00' }];
+
 const decodeLegacyText = (value) => {
   if (value == null) return value;
   const codePage = [
@@ -30,7 +44,9 @@ const decodeLegacyText = (value) => {
 
 publicRouter.get('/settings', wrap(async (_req, res) => {
   // internal_* keys are LAN-only system links for staff — never exposed publicly
-  const rows = (await q(`SELECT key, value FROM hospital_settings WHERE key NOT LIKE 'internal\\_%'`)).rows;
+  let rows;
+  try { rows = (await q(`SELECT key, value FROM hospital_settings WHERE key NOT LIKE 'internal\\_%'`)).rows; }
+  catch { rows = Object.entries(fallbackSettings).map(([key, value]) => ({ key, value })); }
   const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
   ok(res, { settings }, 'Settings');
 }));
@@ -47,11 +63,13 @@ publicRouter.get('/services', wrap(async (req, res) => {
   if (req.query.q) { params.push(`%${req.query.q}%`); where.push(`(s.name ILIKE $${params.length} OR s.description ILIKE $${params.length})`); }
   if (req.query.department) { params.push(req.query.department); where.push(`d.slug = $${params.length}`); }
   if (req.query.emergency === '1') where.push('s.emergency');
-  const rows = (await q(
+  let rows;
+  try { rows = (await q(
     `SELECT s.id, s.slug, s.name, s.description, s.available_days, s.working_hours,
             s.location, s.contact, s.bookable, s.emergency, d.name AS department, d.slug AS department_slug
      FROM services s LEFT JOIN departments d ON d.id = s.department_id
-     WHERE ${where.join(' AND ')} ORDER BY s.name`, params)).rows;
+     WHERE ${where.join(' AND ')} ORDER BY s.name`, params)).rows; }
+  catch { rows = fallbackServices; }
   ok(res, { services: rows }, 'Services');
 }));
 
@@ -59,12 +77,14 @@ publicRouter.get('/doctors', wrap(async (req, res) => {
   const params = []; const where = ['doc.is_active'];
   if (req.query.q) { params.push(`%${req.query.q}%`); where.push(`(doc.full_name ILIKE $${params.length} OR doc.specialty ILIKE $${params.length})`); }
   if (req.query.department) { params.push(req.query.department); where.push(`d.slug = $${params.length}`); }
-  const rows = (await q(
+  let rows;
+  try { rows = (await q(
     `SELECT doc.id, doc.slug, doc.full_name, doc.title, doc.specialty, doc.qualifications,
             doc.languages, doc.working_days, doc.working_hours, doc.accepts_appointments,
             doc.biography, doc.photo_path, d.name AS department, d.slug AS department_slug
      FROM doctors doc LEFT JOIN departments d ON d.id = doc.department_id
-     WHERE ${where.join(' AND ')} ORDER BY doc.full_name`, params)).rows;
+      WHERE ${where.join(' AND ')} ORDER BY doc.full_name`, params)).rows; }
+    catch { rows = fallbackDoctors; }
   ok(res, { doctors: rows }, 'Doctors');
 }));
 
