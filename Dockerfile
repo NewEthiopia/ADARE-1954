@@ -1,12 +1,12 @@
 # ADARE PLATFORM — API + built SPA in one image
-FROM node:20-alpine AS webbuild
+FROM node:22-alpine AS webbuild
 WORKDIR /app/web
 COPY web/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY web ./
 RUN npx vite build
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
