@@ -30,6 +30,16 @@ export function errorHandler(err, req, res, _next) {
   if (err instanceof ApiError) {
     return res.status(err.status).json({ ok: false, code: err.code, error: err.message, message: err.message });
   }
+  const databaseUnavailable = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', '57P01', '57P03', '3D000'].includes(err.code);
+  if (databaseUnavailable) {
+    console.error(`[server] ${req.method} ${req.path}: database unavailable`);
+    return res.status(503).json({
+      ok: false,
+      code: 'DATABASE_UNAVAILABLE',
+      error: 'The production database is not connected. Configure DATABASE_URL in Render before signing in.',
+      message: 'The production database is not connected. Configure DATABASE_URL in Render before signing in.',
+    });
+  }
   // Never leak stack traces or SQL to clients
   console.error(`[server] ${req.method} ${req.path}:`, err.message);
   res.status(500).json({ ok: false, code: 'SERVER_ERROR', error: 'An unexpected server error occurred.', message: 'An unexpected server error occurred.' });
