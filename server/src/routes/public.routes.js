@@ -22,6 +22,13 @@ const fallbackServices = [
   { id: 'mch', slug: 'antenatal-care', name: 'Antenatal Care', description: 'Pregnancy follow-up, screening and birth planning.', available_days: 'Mon-Fri', working_hours: '8:00-17:00', emergency: false, bookable: true, department: 'Maternal & Child Health' },
 ];
 const fallbackDoctors = [{ id: 'team', full_name: 'Adare Clinical Team', title: 'Healthcare Professionals', specialty: 'General care', department: 'Outpatient Department', working_days: 'Mon-Fri', working_hours: '8:00-17:00' }];
+const fallbackNews = [{
+  id: 'fallback-campaign', slug: 'free-kiremt-health-screening-campaign',
+  title: 'ነፃ የጤና ምርመራ! Free Kiremt Volunteer Health Screening Campaign',
+  excerpt: 'Adare General Hospital invites the community to free health screening services under the kiremt goodwill program.',
+  image_path: '/uploads/news/free-screening-campaign.jpg', is_featured: true,
+  category: 'Notices', category_slug: 'notices', publish_at: '2026-08-15T00:00:00.000Z',
+}];
 
 const decodeLegacyText = (value) => {
   if (value == null) return value;
@@ -109,8 +116,9 @@ publicRouter.get('/news', wrap(async (req, res) => {
   if (req.query.category) { params.push(req.query.category); where.push(`c.slug = $${params.length}`); }
   if (req.query.q) { params.push(`%${req.query.q}%`); where.push(`(n.title ILIKE $${params.length} OR n.excerpt ILIKE $${params.length})`); }
   const base = `FROM news n LEFT JOIN news_categories c ON c.id = n.category_id WHERE ${where.join(' AND ')}`;
-  const total = Number((await q(`SELECT count(*) ${base}`, params)).rows[0].count);
-  const rows = (await q(
+  try {
+    const total = Number((await q(`SELECT count(*) ${base}`, params)).rows[0].count);
+    const rows = (await q(
     `SELECT n.id, n.slug,
             encode(convert_to(n.title, 'WIN1252'), 'base64') AS title_b64,
             encode(convert_to(n.excerpt, 'WIN1252'), 'base64') AS excerpt_b64,
@@ -118,7 +126,7 @@ publicRouter.get('/news', wrap(async (req, res) => {
             c.name AS category, c.slug AS category_slug
      ${base} ORDER BY coalesce(n.publish_at, n.created_at) DESC
      LIMIT ${per} OFFSET ${(page - 1) * per}`, params)).rows;
-  ok(res, {
+    ok(res, {
     news: rows.map(({ title_b64, excerpt_b64, ...row }) => ({
       ...row,
       title: decodeLegacyText(title_b64),
@@ -127,7 +135,10 @@ publicRouter.get('/news', wrap(async (req, res) => {
     total,
     page,
     per_page: per,
-  }, 'News');
+    }, 'News');
+  } catch {
+    ok(res, { news: fallbackNews, total: fallbackNews.length, page: 1, per_page: per }, 'News');
+  }
 }));
 
 publicRouter.get('/news/:slug', wrap(async (req, res) => {
