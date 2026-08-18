@@ -35,6 +35,18 @@ adminRouter.get('/dashboard', requireRole('receptionist', 'doctor', 'nurse', 'fi
     }, 'Dashboard');
   }));
 
+// ---------- internal systems (staff-only LAN links: Dagu, EMR, Odoo) ----------
+adminRouter.get('/internal-systems', wrap(async (_req, res) => {
+  const rows = (await q(`SELECT key, value FROM hospital_settings WHERE key LIKE 'internal\\_%'`)).rows;
+  const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  const systems = [
+    { name: 'Dagu 2.0', url: map.internal_dagu_url, note: 'Supply chain / logistics' },
+    { name: 'EMR System', url: map.internal_emr_url, note: 'Electronic medical records' },
+    { name: 'Odoo ERP', url: map.internal_odoo_url, note: 'Enterprise resource planning' },
+  ].filter(s => s.url);
+  ok(res, { systems }, 'Internal systems');
+}));
+
 // ---------- notifications (staff feed) ----------
 adminRouter.get('/notifications', wrap(async (req, res) => {
   const rows = (await q(

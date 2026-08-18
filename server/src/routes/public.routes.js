@@ -9,7 +9,8 @@ import { notifyRole } from '../notify.js';
 export const publicRouter = Router();
 
 publicRouter.get('/settings', wrap(async (_req, res) => {
-  const rows = (await q(`SELECT key, value FROM hospital_settings`)).rows;
+  // internal_* keys are LAN-only system links for staff — never exposed publicly
+  const rows = (await q(`SELECT key, value FROM hospital_settings WHERE key NOT LIKE 'internal\\_%'`)).rows;
   const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
   ok(res, { settings }, 'Settings');
 }));

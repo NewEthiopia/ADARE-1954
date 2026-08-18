@@ -76,13 +76,49 @@ function Bars({ rows, labelKey, valueKey, blue }) {
   );
 }
 
-function DashboardView() {
+function DashboardView({ go }) {
   const [d, setD] = useState(null);
-  useEffect(() => { get('/admin/dashboard').then(setD).catch(() => {}); }, []);
+  const [systems, setSystems] = useState([]);
+  useEffect(() => {
+    get('/admin/dashboard').then(setD).catch(() => {});
+    get('/admin/internal-systems').then(x => setSystems(x.systems || [])).catch(() => {});
+  }, []);
   if (!d) return <div className="skeleton" style={{ height: 300 }} />;
   const k = d.kpi;
+  const role = auth.user?.role;
+  const isAdmin = ['super_admin', 'hospital_admin'].includes(role);
   return (
     <>
+      {/* quick actions */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        {(isAdmin || ['receptionist', 'nurse', 'doctor'].includes(role)) &&
+          <button className="btn btn-primary btn-sm" onClick={() => go('patients')}>＋ Register Patient</button>}
+        {isAdmin &&
+          <button className="btn btn-navy btn-sm" onClick={() => go('users')}>＋ Register Staff</button>}
+        {(isAdmin || role === 'content_manager') &&
+          <button className="btn btn-outline btn-sm" onClick={() => go('news')}>📰 CMS News &amp; Tenders</button>}
+        {(isAdmin || ['receptionist', 'doctor', 'nurse'].includes(role)) &&
+          <button className="btn btn-outline btn-sm" onClick={() => go('appointments')}>🗓 Appointment Queue</button>}
+      </div>
+
+      {/* internal hospital systems — LAN links (open only inside the hospital network) */}
+      {systems.length > 0 && (
+        <div className="panel" style={{ borderTop: '4px solid var(--ochre)' }}>
+          <h3>Internal Systems <span className="muted" style={{ fontWeight: 400, fontSize: 12.5 }}>hospital network (LAN) only</span></h3>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {systems.map(s => (
+              <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
+                className="btn btn-outline btn-sm" title={`${s.note} — ${s.url}`}>
+                🔗 {s.name}
+              </a>
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+            These systems run on the hospital's private network (192.168.x.x) and only open from computers
+            connected to the hospital LAN/Wi-Fi. Addresses are editable by administrators under Settings.
+          </p>
+        </div>
+      )}
       <div className="kpi-row">
         <div className="kpi"><div className="v">{k.total_patients}</div><div className="l">Total patients</div></div>
         <div className="kpi ochre"><div className="v">{k.todays_appointments}</div><div className="l">Today's appointments</div></div>
@@ -715,7 +751,7 @@ export default function Staff() {
   const signOut = async () => { try { await post('/auth/logout', {}); } catch {} auth.clear(); setSignedIn(false); };
 
   const views = {
-    dashboard: <DashboardView />, appointments: <AppointmentsView toast={toast} />,
+    dashboard: <DashboardView go={setView} />, appointments: <AppointmentsView toast={toast} />,
     patients: <PatientsView toast={toast} />, payments: <PaymentsView toast={toast} />,
     news: <NewsView toast={toast} />, messages: <MessagesView toast={toast} />,
     leadership: <LeadershipView toast={toast} />,
