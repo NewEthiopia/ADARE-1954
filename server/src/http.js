@@ -30,7 +30,8 @@ export function errorHandler(err, req, res, _next) {
   if (err instanceof ApiError) {
     return res.status(err.status).json({ ok: false, code: err.code, error: err.message, message: err.message });
   }
-  const databaseUnavailable = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', '57P01', '57P03', '3D000'].includes(err.code);
+  const databaseUnavailable = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', '57P01', '57P03', '3D000'].includes(err.code)
+    || /database|postgres|connection|connect econn|does not exist/i.test(err.message || '');
   if (databaseUnavailable) {
     console.error(`[server] ${req.method} ${req.path}: database unavailable`);
     return res.status(503).json({
