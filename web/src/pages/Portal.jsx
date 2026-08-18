@@ -41,8 +41,8 @@ function AuthView({ onDone }) {
       <form onSubmit={submit} className="panel">
         {mode === 'login' ? (
           <>
-            <div className="field"><label htmlFor="p-user">Phone number</label>
-              <input id="p-user" required value={form.username} onChange={set('username')} autoComplete="username" placeholder="09… or +2519…" /></div>
+            <div className="field"><label htmlFor="p-user">Phone number or Email address</label>
+              <input id="p-user" required value={form.username} onChange={set('username')} autoComplete="username" placeholder="09… / +2519… / you@email.com" /></div>
             <div className="field"><label htmlFor="p-pass">Password</label>
               <input id="p-pass" required type="password" value={form.password} onChange={set('password')} autoComplete="current-password" /></div>
           </>

@@ -28,6 +28,11 @@ export const config = {
   loginMaxFails: Number(process.env.LOGIN_MAX_FAILS || 5),
   loginLockMinutes: Number(process.env.LOGIN_LOCK_MINUTES || 15),
   secureCookies: process.env.SECURE_COOKIES === '1',
+  // One-click demo role logins (testing suite). Defaults ON outside production.
+  // Set DEMO_MODE=0 to force-disable, DEMO_MODE=1 to force-enable.
+  demoMode: process.env.DEMO_MODE !== undefined
+    ? process.env.DEMO_MODE === '1'
+    : (process.env.NODE_ENV || 'development') !== 'production',
   // Provider integrations — empty means NOT CONFIGURED (never simulated)
   smsProvider: process.env.SMS_PROVIDER || '',
   smsApiKey: process.env.SMS_API_KEY || '',

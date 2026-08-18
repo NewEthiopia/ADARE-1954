@@ -16,6 +16,7 @@ import { errorHandler, ok } from './http.js';
 import { requireAuth } from './auth.js';
 import { sseHandler } from './notify.js';
 import { authRouter } from './routes/auth.routes.js';
+import { demoRouter } from './routes/demo.routes.js';
 import { publicRouter } from './routes/public.routes.js';
 import { appointmentsRouter } from './routes/appointments.routes.js';
 import { patientsRouter } from './routes/patients.routes.js';
@@ -57,6 +58,7 @@ app.get('/api/events', requireAuth, sseHandler);
 
 // ---------- routes ----------
 app.use('/api/auth', authRouter);
+app.use('/api/auth', demoRouter);
 app.use('/api', publicRouter);
 app.use('/api/appointments', appointmentsRouter);
 app.use('/api/patients', patientsRouter);

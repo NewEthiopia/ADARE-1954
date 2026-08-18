@@ -25,33 +25,101 @@ function Toasts({ items }) {
 function Login({ onDone }) {
   const [f, setF] = useState({ username: '', password: '' });
   const [state, setState] = useState({ busy: false, error: '' });
+  const [demoRoles, setDemoRoles] = useState([]);
+  const [demoBusy, setDemoBusy] = useState('');
+
+  useEffect(() => {
+    // demo roles exist only while DEMO_MODE is enabled on the server
+    get('/auth/demo-roles').then(d => setDemoRoles(d.roles || [])).catch(() => setDemoRoles([]));
+  }, []);
+
+  const finish = (d) => {
+    auth.set(d);
+    if (d.user.role === 'patient') { window.location.href = '/portal'; return; }
+    onDone();
+  };
   const submit = async (e) => {
     e.preventDefault();
     setState({ busy: true, error: '' });
-    try {
-      const d = await post('/auth/login', f);
-      auth.set(d);
-      if (d.user.role === 'patient') { window.location.href = '/portal'; return; }
-      onDone();
-    } catch (err) { setState({ busy: false, error: err.message }); }
+    try { finish(await post('/auth/login', f)); }
+    catch (err) { setState({ busy: false, error: err.message }); }
   };
+  const demoLogin = async (key) => {
+    setDemoBusy(key); setState(s => ({ ...s, error: '' }));
+    try { finish(await post('/auth/demo-login', { key })); }
+    catch (err) { setState(s => ({ ...s, error: err.message })); setDemoBusy(''); }
+  };
+
+  const ICONS = { super_admin: '🛡', director: '📊', surgeon: '🩺', internist: '🩻',
+    reception: '🗓', pharmacist: '💊', labtech: '🔬', cashier: '₵', patient: '👤' };
+
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, var(--navy-deep), var(--navy))', padding: 18 }}>
-      <form onSubmit={submit} style={{ background: 'var(--surface)', borderRadius: 12, padding: '34px 30px', width: '100%', maxWidth: 400, borderTop: '5px solid var(--red)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <img src="/logo-192.png" alt="" width="40" height="40" style={{ borderRadius: '50%', background: '#fff', border: '2px solid var(--ochre)' }} />
-          <p className="mono" style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--red)', fontWeight: 700 }}>Adare General Hospital · Restricted</p>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, var(--navy-deep), var(--navy))', padding: '34px 18px' }}>
+      <div style={{ maxWidth: 980, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', color: '#fff', marginBottom: 26 }}>
+          <img src="/logo-192.png" alt="Adare General Hospital logo" width="64" height="64"
+            style={{ borderRadius: '50%', background: '#fff', border: '3px solid var(--ochre)', margin: '0 auto 12px', display: 'block' }} />
+          <h1 style={{ fontSize: 'clamp(22px,3.4vw,30px)' }}>Adare General Hospital Portal</h1>
+          <p style={{ color: '#C9D6E2', fontSize: 15, marginTop: 4 }}>Role Authentication &amp; Staff Workplace Access</p>
         </div>
-        <h1 style={{ fontSize: 21, color: 'var(--navy)', margin: '6px 0 4px' }}>HMS Staff Sign-in</h1>
-        <p className="muted" style={{ fontSize: 13.5, marginBottom: 18 }}>Every action is recorded in the audit log.</p>
-        {state.error && <div className="alert error" role="alert">{state.error}</div>}
-        <div className="field"><label htmlFor="s-user">Username</label>
-          <input id="s-user" required autoComplete="username" value={f.username} onChange={e => setF(v => ({ ...v, username: e.target.value }))} /></div>
-        <div className="field"><label htmlFor="s-pass">Password</label>
-          <input id="s-pass" required type="password" autoComplete="current-password" value={f.password} onChange={e => setF(v => ({ ...v, password: e.target.value }))} /></div>
-        <button className="btn btn-primary" style={{ width: '100%' }} disabled={state.busy}>{state.busy ? 'Signing in…' : 'Sign in securely'}</button>
-        <p className="muted" style={{ fontSize: 13, marginTop: 14 }}><a href="/" style={{ textDecoration: 'underline' }}>← Public website</a></p>
-      </form>
+
+        {state.error && <div className="alert error" role="alert" style={{ maxWidth: 640, margin: '0 auto 16px' }}>{state.error}</div>}
+
+        {demoRoles.length > 0 && (
+          <div style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 14, padding: '20px 20px 14px', marginBottom: 24 }}>
+            <p className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ochre)', fontWeight: 700 }}>
+              ⚡ Instant One-Click Demo Role Login (Testing Suite)
+            </p>
+            <p style={{ color: '#9FB2C1', fontSize: 12.5, margin: '4px 0 14px' }}>
+              Demo mode is for evaluation only — disabled automatically in production. Every demo session is audited.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+              {demoRoles.map(r => (
+                <button key={r.key} onClick={() => demoLogin(r.key)} disabled={!!demoBusy}
+                  style={{
+                    textAlign: 'start', padding: '13px 14px', borderRadius: 10, cursor: 'pointer',
+                    background: demoBusy === r.key ? 'rgba(201,138,40,.25)' : 'rgba(255,255,255,.08)',
+                    border: '1px solid rgba(255,255,255,.22)', color: '#fff',
+                    opacity: demoBusy && demoBusy !== r.key ? .5 : 1, transition: 'background .15s',
+                  }}>
+                  <span style={{ fontSize: 18 }}>{ICONS[r.key] || '⚕'}</span>
+                  <strong style={{ display: 'block', fontSize: 14.5, margin: '4px 0 2px' }}>
+                    {demoBusy === r.key ? 'Signing in…' : r.label}
+                  </strong>
+                  <span style={{ fontSize: 12, color: '#B9C8D6' }}>{r.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 18, maxWidth: 760, margin: '0 auto' }}>
+          <form onSubmit={submit} style={{ background: 'var(--surface)', borderRadius: 12, padding: '26px 24px', borderTop: '5px solid var(--red)' }}>
+            <h2 style={{ fontSize: 18, color: 'var(--navy)', marginBottom: 4 }}>Custom Login</h2>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Staff username or patient phone/email. Every action is recorded in the audit log.</p>
+            <div className="field"><label htmlFor="s-user">Username / Phone / Email</label>
+              <input id="s-user" required autoComplete="username" value={f.username} onChange={e => setF(v => ({ ...v, username: e.target.value }))} /></div>
+            <div className="field"><label htmlFor="s-pass">Password</label>
+              <input id="s-pass" required type="password" autoComplete="current-password" value={f.password} onChange={e => setF(v => ({ ...v, password: e.target.value }))} /></div>
+            <button className="btn btn-primary" style={{ width: '100%' }} disabled={state.busy}>{state.busy ? 'Signing in…' : 'Sign in securely'}</button>
+          </form>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '26px 24px', borderTop: '5px solid var(--ochre)' }}>
+            <h2 style={{ fontSize: 18, color: 'var(--navy)', marginBottom: 4 }}>Register Patient Account</h2>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+              Patients create a free account with phone number, email address and password — then book appointments,
+              see prescriptions status and payment history in the portal.
+            </p>
+            <a className="btn btn-navy" style={{ width: '100%' }} href="/portal">Open patient registration →</a>
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>
+              Staff accounts are created by administrators only (Staff users view).
+            </p>
+          </div>
+        </div>
+
+        <p style={{ textAlign: 'center', marginTop: 20 }}>
+          <a href="/" style={{ color: '#C9D6E2', textDecoration: 'underline', fontSize: 13.5 }}>← Public website</a>
+        </p>
+      </div>
     </div>
   );
 }
