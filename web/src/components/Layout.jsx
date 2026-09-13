@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { get } from '../lib/api.js';
 import { t, getLang, setLang, LANGS } from '../lib/i18n.js';
 
@@ -64,6 +64,7 @@ function GlobalSearch() {
 export default function Layout() {
   const tr = useT();
   const settings = useSettings();
+  const location = useLocation();
   const [navOpen, setNavOpen] = useState(false);
   const [theme, setTheme] = useState(document.documentElement.dataset.theme);
   const toggleTheme = () => {
@@ -118,7 +119,7 @@ export default function Layout() {
         </div>
       </header>
 
-      <main id="main">
+      <main id="main" key={location.pathname}>
         <Outlet />
       </main>
 

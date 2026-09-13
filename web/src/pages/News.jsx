@@ -24,6 +24,26 @@ export default function News() {
       <div className="filter-row">
         <input aria-label="Search news" placeholder="Search news…" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} style={{ flex: '1 1 260px' }} />
       </div>
+      <section className="facebook-updates" aria-labelledby="facebook-updates-title">
+        <div>
+          <span className="label">Community updates</span>
+          <h3 id="facebook-updates-title">Latest from Facebook</h3>
+          <p className="muted">Public posts from Adare General Hospital, Hawassa appear here as soon as Facebook publishes them.</p>
+          <a className="btn btn-outline btn-sm" href="https://www.facebook.com/profile.php?id=100063792523741" target="_blank" rel="noreferrer">Open Facebook page</a>
+        </div>
+        <div className="facebook-frame">
+          <iframe
+            title="Adare General Hospital Facebook updates"
+            src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D100063792523741&tabs=timeline&width=500&height=700&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true"
+            width="500"
+            height="700"
+            style={{ border: 'none', overflow: 'hidden' }}
+            scrolling="no"
+            frameBorder="0"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+          />
+        </div>
+      </section>
       <div className="card-grid">
         {data === null && [...Array(6)].map((_, i) => <div key={i} className="skeleton" style={{ height: 150 }} />)}
         {data?.news.map(n => (

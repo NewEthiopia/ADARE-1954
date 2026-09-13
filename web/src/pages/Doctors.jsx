@@ -2,6 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { get, initials } from '../lib/api.js';
 
+function DoctorPhoto({ doctor }) {
+  return (
+    <div className="doctor-photo">
+      <img src={doctor.photo_path || '/logo-192.webp'} alt="" loading="lazy" decoding="async" />
+      <span aria-hidden>{initials(doctor.full_name)}</span>
+    </div>
+  );
+}
+
 export default function Doctors() {
   const [doctors, setDoctors] = useState(null);
   const [departments, setDepartments] = useState([]);
@@ -37,7 +46,7 @@ export default function Doctors() {
         {doctors?.map(d => (
           <div className="card" key={d.id}>
             <div className="doc-card">
-              <span className="doc-avatar" aria-hidden>{initials(d.full_name)}</span>
+              <DoctorPhoto doctor={d} />
               <div style={{ minWidth: 0 }}>
                 <h3>{d.full_name}</h3>
                 <p className="muted" style={{ fontSize: 13.5 }}>{d.title}</p>

@@ -40,6 +40,15 @@ function CountUp({ value }) {
   return <span ref={ref}>{n.toLocaleString()}</span>;
 }
 
+function DoctorPhoto({ doctor }) {
+  return (
+    <div className="doctor-photo">
+      <img src={doctor.photo_path || '/logo-192.webp'} alt="" loading="lazy" decoding="async" />
+      <span aria-hidden>{initials(doctor.full_name)}</span>
+    </div>
+  );
+}
+
 function FeaturedCampaign() {
   const [featured, setFeatured] = useState(null);
   useEffect(() => {
@@ -170,7 +179,7 @@ export default function Home() {
           <div className="card-grid">
             {doctors.map(d => (
               <div className="card doc-card" key={d.id}>
-                <span className="doc-avatar" aria-hidden>{initials(d.full_name)}</span>
+                <DoctorPhoto doctor={d} />
                 <div>
                   <h3>{d.full_name}</h3>
                   <p className="muted" style={{ fontSize: 13.5 }}>{d.title} · {d.department}</p>
