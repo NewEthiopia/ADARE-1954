@@ -59,8 +59,15 @@ CREATE TABLE IF NOT EXISTS departments (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-ALTER TABLE users ADD CONSTRAINT fk_users_department
-  FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_users_department'
+  ) THEN
+    ALTER TABLE users ADD CONSTRAINT fk_users_department
+      FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS services (
   id             SERIAL PRIMARY KEY,

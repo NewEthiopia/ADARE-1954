@@ -72,7 +72,8 @@ In the VS Code terminal:
 ```bash
 cd server
 npm install
-node scripts/seed-dev.js     # creates the dev staff accounts
+npm run migrate              # applies numbered database migrations
+npm run seed                 # creates dev staff accounts; development only
 cd ../web
 npm install
 ```
@@ -87,7 +88,7 @@ npm install
 
 Terminal 1:
 ```bash
-cd server && node src/index.js        # API on http://localhost:4000
+cd server && npm start                # API on http://localhost:4000
 ```
 
 Terminal 2:

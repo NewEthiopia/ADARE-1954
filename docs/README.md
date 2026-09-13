@@ -31,16 +31,16 @@ adare-platform/
 # database
 sudo -u postgres psql -c "CREATE USER agh WITH PASSWORD '...'" \
                      -c "CREATE DATABASE adare_platform OWNER agh"
-sudo -u postgres psql -d adare_platform -f server/db/001_schema.sql
-sudo -u postgres psql -d adare_platform -f server/db/002_seed.sql
 
 # server
 cd server && cp .env.example .env   # fill DATABASE_URL + secrets
-npm install && node scripts/seed-dev.js && node src/index.js
+npm install && npm run migrate && npm run seed && npm start
 
 # web (dev mode w/ proxy)  — or `npx vite build` and the API serves dist/
 cd web && npm install && npx vite
 ```
+
+`npm run seed` is for development only. Never run it in production; create real staff accounts with `scripts/create-admin.js` or the staff portal.
 
 ## Production (Docker)
 
