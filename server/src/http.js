@@ -41,7 +41,11 @@ export function errorHandler(err, req, res, _next) {
       message: 'The production database is not connected. Configure DATABASE_URL in Render before signing in.',
     });
   }
-  // Never leak stack traces or SQL to clients
-  console.error(`[server] ${req.method} ${req.path}:`, err.message);
-  res.status(500).json({ ok: false, code: 'SERVER_ERROR', error: 'An unexpected server error occurred.', message: 'An unexpected server error occurred.' });
+  // Never leak stack traces or SQL to clients, but classify common operational failures.
+  console.error(`[server] ${req.method} ${req.path}:`, err.stack || err.message);
+  const databaseDown = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', '57P01', '57P03'].includes(err.code);
+  if (databaseDown) {
+    return res.status(503).json({ ok: false, code: 'DATABASE_UNAVAILABLE', error: 'The hospital database is temporarily unavailable.', message: 'The hospital database is temporarily unavailable.' });
+  }
+  res.status(500).json({ ok: false, code: 'SERVER_ERROR', error: 'The hospital service could not complete that request. Please try again.', message: 'The hospital service could not complete that request. Please try again.' });
 }

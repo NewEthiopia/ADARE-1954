@@ -24,6 +24,8 @@ import { paymentsRouter } from './routes/payments.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 import { leadershipRouter } from './routes/leadership.routes.js';
 import { procurementRouter, procurementAdminRouter } from './routes/procurement.routes.js';
+import { assistantRouter } from './routes/assistant.routes.js';
+import { doctorsAdminRouter } from './routes/doctors.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -76,6 +78,8 @@ app.use('/api/admin', adminRouter);
 app.use('/api/leadership', leadershipRouter);
 app.use('/api/procurement', procurementRouter);
 app.use('/api/admin/procurement', procurementAdminRouter);
+app.use('/api/assistant', assistantRouter);
+app.use('/api/admin/doctors', doctorsAdminRouter);
 
 // public media (leader photos etc.) — long cache, immutable filenames
 app.use('/uploads', express.static(config.uploadDir, { maxAge: '30d', immutable: true }));

@@ -10,6 +10,7 @@ const NAV = [
   ['payments', '₵ Payments', ['finance', 'receptionist']],
   ['news', '📰 News CMS', ['content_manager']],
   ['procurement', '📄 Tenders', ['content_manager']],
+  ['doctors', '🩺 Doctor images', ['content_manager']],
   ['messages', '✉ Messages', ['content_manager']],
   ['leadership', '🏛 Leadership', ['content_manager']],
   ['users', '♟ Staff users', []],
@@ -768,6 +769,23 @@ function ProcurementView({ toast }) {
   </>;
 }
 
+function DoctorImagesView({ toast }) {
+  const [rows, setRows] = useState([]);
+  const load = useCallback(() => get('/doctors').then(d => setRows(d.doctors || [])).catch(e => toast(e.message)), [toast]);
+  useEffect(() => { load(); }, [load]);
+  const upload = async (doctor, file) => {
+    if (!file) return;
+    const body = new FormData(); body.append('photo', file);
+    try {
+      const response = await fetch(`/api/admin/doctors/${doctor.id}/photo`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` }, body });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Upload failed.');
+      toast(`Photo uploaded for ${doctor.full_name}`); load();
+    } catch (e) { toast(e.message); }
+  };
+  return <div className="panel"><h3>Doctor images</h3><p className="muted" style={{ marginBottom: 14 }}>Upload the hospital-approved portrait for each doctor. JPEG, PNG and WebP up to 5 MB.</p><div className="table-wrap"><table><thead><tr><th>Doctor</th><th>Current image</th><th>Upload</th></tr></thead><tbody>{rows.map(doctor => <tr key={doctor.id}><td><strong>{doctor.full_name}</strong><br /><span className="muted">{doctor.title}</span></td><td>{doctor.photo_path ? <img src={doctor.photo_path} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: '50%' }} /> : <span className="muted">No photo</span>}</td><td><input type="file" accept="image/jpeg,image/png,image/webp" aria-label={`Upload photo for ${doctor.full_name}`} onChange={e => upload(doctor, e.target.files?.[0])} /></td></tr>)}</tbody></table></div></div>;
+}
+
 /* -------------------- Reports -------------------- */
 function ReportsView({ toast }) {
   const [report, setReport] = useState(null);
@@ -855,6 +873,7 @@ export default function Staff() {
     news: <NewsView toast={toast} />, messages: <MessagesView toast={toast} />,
     leadership: <LeadershipView toast={toast} />,
     procurement: <ProcurementView toast={toast} />,
+    doctors: <DoctorImagesView toast={toast} />,
     users: <UsersView toast={toast} />, audit: <AuditView toast={toast} />, reports: <ReportsView toast={toast} />,
   };
 

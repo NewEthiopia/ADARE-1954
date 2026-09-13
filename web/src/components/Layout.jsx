@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { get } from '../lib/api.js';
 import { t, getLang, setLang, LANGS } from '../lib/i18n.js';
+import AssistantWidget from './AssistantWidget.jsx';
 
 export function useT() {
   const [, force] = useState(0);
@@ -127,6 +128,7 @@ export default function Layout() {
       <a className="btn btn-emergency fab-emergency" href={`tel:${phone.replace(/\s/g, '')}`}>
         ✆ {tr('callEmergency')}
       </a>
+      <AssistantWidget />
 
       <footer className="footer">
         <div className="wrap">
