@@ -36,6 +36,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'"],
+      frameSrc: ["'self'", 'https://www.facebook.com', 'https://web.facebook.com', 'https://staticxx.facebook.com'],
       frameAncestors: ["'self'"],
     },
   },
