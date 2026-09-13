@@ -9,6 +9,7 @@ const NAV = [
   ['patients', '👥 Patients', ['receptionist', 'doctor', 'nurse']],
   ['payments', '₵ Payments', ['finance', 'receptionist']],
   ['news', '📰 News CMS', ['content_manager']],
+  ['procurement', '📄 Tenders', ['content_manager']],
   ['messages', '✉ Messages', ['content_manager']],
   ['leadership', '🏛 Leadership', ['content_manager']],
   ['users', '♟ Staff users', []],
@@ -737,6 +738,36 @@ function AuditView({ toast }) {
   );
 }
 
+/* -------------------- Procurement -------------------- */
+function ProcurementView({ toast }) {
+  const [rows, setRows] = useState([]);
+  const [form, setForm] = useState({ title: '', description: '', price: '', deadline: '', document: null });
+  const load = useCallback(() => get('/admin/procurement').then(d => setRows(d.tenders)).catch(e => toast(e.message)), [toast]);
+  useEffect(() => { load(); }, [load]);
+  const upload = async (event) => {
+    event.preventDefault();
+    const body = new FormData();
+    Object.entries(form).forEach(([key, value]) => { if (value !== null && value !== '') body.append(key, value); });
+    try {
+      const response = await fetch('/api/admin/procurement', { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` }, body });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Upload failed.');
+      toast('Tender uploaded'); setForm({ title: '', description: '', price: '', deadline: '', document: null }); event.target.reset(); load();
+    } catch (e) { toast(e.message); }
+  };
+  const release = async (row) => { try { await patch(`/admin/procurement/${row.id}/release`, {}); toast(`${row.reference} released`); load(); } catch (e) { toast(e.message); } };
+  return <>
+    <form className="panel" onSubmit={upload}>
+      <h3>Upload tender / procurement document</h3>
+      <p className="muted" style={{ marginBottom: 14 }}>Buyers must submit payment. Finance verifies it, then an administrator releases the file.</p>
+      <div className="form-grid"><div className="field"><label htmlFor="td-title">Title</label><input id="td-title" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div><div className="field"><label htmlFor="td-price">Price (ETB)</label><input id="td-price" required type="number" min="0.01" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div><div className="field"><label htmlFor="td-deadline">Deadline</label><input id="td-deadline" type="datetime-local" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} /></div><div className="field"><label htmlFor="td-file">Tender file</label><input id="td-file" required type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip" onChange={e => setForm({ ...form, document: e.target.files?.[0] || null })} /></div></div>
+      <div className="field"><label htmlFor="td-description">Description</label><textarea id="td-description" rows="3" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
+      <button className="btn btn-primary">Upload and publish</button>
+    </form>
+    <div className="panel"><h3>Tender documents</h3><div className="table-wrap"><table><thead><tr><th>Reference</th><th>Title</th><th>Price</th><th>Payments</th><th>Release</th><th>Action</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td className="mono">{row.reference}</td><td>{row.title}</td><td>{row.price} {row.currency}</td><td>{row.payment_count} total · {row.pending_payments} pending</td><td>{row.released_at ? new Date(row.released_at).toLocaleString() : 'Locked'}</td><td>{row.released_at ? <span className="status-pill st-CONFIRMED">released</span> : <button className="btn btn-outline btn-sm" onClick={() => release(row)}>Release file</button>}</td></tr>)}{!rows.length && <tr><td colSpan="6" className="muted">No tender documents.</td></tr>}</tbody></table></div></div>
+  </>;
+}
+
 /* -------------------- Reports -------------------- */
 function ReportsView({ toast }) {
   const [report, setReport] = useState(null);
@@ -823,6 +854,7 @@ export default function Staff() {
     patients: <PatientsView toast={toast} />, payments: <PaymentsView toast={toast} />,
     news: <NewsView toast={toast} />, messages: <MessagesView toast={toast} />,
     leadership: <LeadershipView toast={toast} />,
+    procurement: <ProcurementView toast={toast} />,
     users: <UsersView toast={toast} />, audit: <AuditView toast={toast} />, reports: <ReportsView toast={toast} />,
   };
 

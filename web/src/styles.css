@@ -25,7 +25,7 @@
   margin: 24px 0 30px;
   padding: 22px;
   border: 1px solid var(--line);
-  background: var(--paper);
+  background: var(--surface);
 }
 
 .facebook-frame {

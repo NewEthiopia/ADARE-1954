@@ -16,6 +16,7 @@ const EmergencyPage = lazy(() => import('./pages/Emergency.jsx'));
 const HealthEdPage = lazy(() => import('./pages/HealthEducation.jsx'));
 const PortalPage = lazy(() => import('./pages/Portal.jsx'));
 const StaffPage = lazy(() => import('./pages/Staff.jsx'));
+const ProcurementPage = lazy(() => import('./pages/Procurement.jsx'));
 const PolicyPage = lazy(() => import('./pages/Policy.jsx'));
 
 function ScrollTop() {
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="/emergency" element={<EmergencyPage />} />
             <Route path="/health-education" element={<HealthEdPage />} />
             <Route path="/portal" element={<PortalPage />} />
+            <Route path="/procurement" element={<ProcurementPage />} />
             <Route path="/privacy" element={<PolicyPage kind="privacy" />} />
             <Route path="/terms" element={<PolicyPage kind="terms" />} />
             <Route path="*" element={<NotFound />} />

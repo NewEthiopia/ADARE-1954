@@ -111,6 +111,7 @@ export default function Layout() {
             <NavLink to="/departments">{tr('departments')}</NavLink>
             <NavLink to="/doctors">{tr('doctors')}</NavLink>
             <NavLink to="/news">{tr('news')}</NavLink>
+            <NavLink to="/procurement">Tenders</NavLink>
             <NavLink to="/contact">{tr('contact')}</NavLink>
             <NavLink to="/portal">{tr('portal')}</NavLink>
           </nav>
