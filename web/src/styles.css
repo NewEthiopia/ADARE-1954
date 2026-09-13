@@ -183,6 +183,36 @@ section.alt { background: var(--surface); border-top: 1px solid var(--line); bor
 .stat-cell .n { font-family: var(--mono); font-size: clamp(24px, 3vw, 36px); font-weight: 700; color: var(--ochre); }
 .stat-cell .l { font-size: 13px; color: #C9D6E2; margin-top: 5px; line-height: 1.4; }
 
+.evolution-section { background: var(--surface); border-block: 1px solid var(--line); }
+.evolution-heading { max-width: 700px; margin: 0 auto 34px; text-align: center; }
+.evolution-heading h2 { margin: 7px 0 10px; color: var(--navy); font-size: clamp(24px, 3.4vw, 38px); line-height: 1.18; }
+[data-theme="dark"] .evolution-heading h2 { color: var(--ink); }
+.evolution-track { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; position: relative; }
+.evolution-track::before { content: ""; position: absolute; top: 39px; left: 8%; right: 8%; height: 2px; background: var(--ochre); opacity: .55; }
+.evolution-step { position: relative; z-index: 1; padding: 0 14px 4px; text-align: center; }
+.evolution-icon { display: grid; place-items: center; width: 62px; height: 62px; margin: 0 auto 14px; border: 3px solid var(--surface); border-radius: 50%; background: var(--navy); box-shadow: 0 0 0 2px var(--ochre), var(--shadow); font-size: 27px; }
+.evolution-step.current .evolution-icon { background: var(--red); }
+.evolution-step.future .evolution-icon { background: var(--ochre); }
+.evolution-index { display: block; color: var(--red); font: 700 10px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.evolution-step h3 { margin-top: 7px; color: var(--navy); font-size: 17px; }
+[data-theme="dark"] .evolution-step h3 { color: var(--ink); }
+.evolution-am { min-height: 25px; margin: 2px 0 9px; color: var(--ochre); font-weight: 700; font-size: 14px; }
+.evolution-step .muted { font-size: 13px; line-height: 1.55; }
+@media (max-width: 900px) {
+  .evolution-track { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 28px; }
+  .evolution-track::before { display: none; }
+}
+@media (max-width: 560px) {
+  .evolution-heading { margin-bottom: 26px; text-align: start; }
+  .evolution-track { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .evolution-step { display: grid; grid-template-columns: 56px 1fr; column-gap: 13px; padding: 14px 0; text-align: start; border-bottom: 1px solid var(--line); }
+  .evolution-step:last-child { border-bottom: 0; }
+  .evolution-icon { grid-row: span 4; width: 56px; height: 56px; margin: 0; font-size: 24px; }
+  .evolution-index { align-self: end; }
+  .evolution-step h3 { margin-top: 2px; }
+  .evolution-am { min-height: 0; margin: 1px 0 5px; }
+}
+
 /* ---------- cards / grids ---------- */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); }

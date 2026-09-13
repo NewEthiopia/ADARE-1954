@@ -150,6 +150,48 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="block evolution-section" aria-labelledby="evolution-title">
+        <div className="wrap">
+          <div className="evolution-heading">
+            <span className="label">Our Evolution · የዕድገት ጉዞ</span>
+            <h2 id="evolution-title">From a Malaria Clinic to a Comprehensive Hospital</h2>
+            <p className="muted">Seven decades of growth in service of Hawassa and the Sidama Region — and the journey continues.</p>
+          </div>
+          <div className="evolution-track">
+            <article className="evolution-step">
+              <div className="evolution-icon" aria-hidden="true">🦟</div>
+              <span className="evolution-index">01</span>
+              <h3>Malaria Clinic</h3><p className="evolution-am">የወባ ክሊኒክ</p>
+              <p className="muted">The institution began its journey as a malaria clinic, serving the community's most urgent public-health need of the era.</p>
+            </article>
+            <article className="evolution-step">
+              <div className="evolution-icon" aria-hidden="true">🏥</div>
+              <span className="evolution-index">02</span>
+              <h3>Health Center</h3><p className="evolution-am">ጤና ጣቢያ</p>
+              <p className="muted">Growing services and staff saw the clinic upgraded to a health center, adding preventive care, maternal services and outpatient treatment.</p>
+            </article>
+            <article className="evolution-step">
+              <div className="evolution-icon" aria-hidden="true">🏨</div>
+              <span className="evolution-index">03</span>
+              <h3>Primary Hospital</h3><p className="evolution-am">የመጀመሪያ ደረጃ ሆስፒታል</p>
+              <p className="muted">As Adare Primary Hospital, the institution provided inpatient care, emergency services and surgical capacity to Hawassa and its surroundings.</p>
+            </article>
+            <article className="evolution-step current">
+              <div className="evolution-icon" aria-hidden="true">⚕️</div>
+              <span className="evolution-index">04 · Today · ዛሬ</span>
+              <h3>General Hospital</h3><p className="evolution-am">አጠቃላይ ሆስፒታል</p>
+              <p className="muted">Today's Adare General Hospital serves a catchment of over 1.3 million people with 12 departments, an accredited laboratory, and 712 staff.</p>
+            </article>
+            <article className="evolution-step future">
+              <div className="evolution-icon" aria-hidden="true">🌟</div>
+              <span className="evolution-index">05 · Running toward · በጉዞ ላይ</span>
+              <h3>Comprehensive Hospital</h3><p className="evolution-am">ኮምፕረሄንሲቭ ሆስፒታል</p>
+              <p className="muted">The journey continues: Adare is running to become a comprehensive hospital — expanding specialty services, capacity and technology for the region.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="block" aria-label="Services">
         <div className="wrap">
           <div className="sec-head">
