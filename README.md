@@ -146,19 +146,26 @@ loads eagerly.
 Staff app → **Leadership** view provides the full admin UI
 (add, edit, photo upload, mark current, ordering, hide/show).
 
-### Website content administration
+### HR educational credentials
 
-The staff portal's **Website content** view lets content managers and
-administrators update the public hospital details and statistics, change the
-heartbeat appearance setting, and override shared navigation/footer labels
-in all six supported languages. Blank translation overrides fall back to the
-built-in text. News, tenders, leadership, and doctor portraits continue to use
-their dedicated CMS views.
+The staff app's **Staff credentials** view is restricted to HR and hospital
+administrators. It reads credential records from PostgreSQL and supports
+search, filters, summaries, profile inspection, and filtered CSV export.
+Authorized administrators can import a JSON array of credential records using
+**Import / update JSON** (up to 2 MB and 5,000 records). Each record must have
+a unique positive integer `id`; records with matching IDs are updated, while
+existing records omitted from an upload are preserved. Each record may include
+staff name, student ID, institution, education, study, and audit fields.
 
-### AletCloud read-only preview
+The HR data file is intentionally excluded from source control. Import it from
+the restricted staff interface after deployment; do not commit personnel data
+or place it in public assets.
 
-For a non-production static preview, deploy the `web/` directory as a Vite
-static app with build command `npm run build`, output directory `dist`, and
-`VITE_PUBLIC_DEMO_MODE=1`. The preview uses fictional directory content and
-does not include the API, database, staff portal, HR records, or form
-submissions. Do not use it for patient care or real personal data.
+### Adare AI
+
+Adare AI serves guided hospital information without an external provider. To
+enable Gemini-backed answers, set `GEMINI_API_KEY` in the backend's secure
+environment configuration (never in a `VITE_` variable or source file). The
+chat only uses public hospital information and explicitly declines medical
+diagnosis or treatment advice; visitors are warned not to share private health
+information.

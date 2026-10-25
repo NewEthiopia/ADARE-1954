@@ -53,13 +53,6 @@ publicRouter.get('/settings', wrap(async (_req, res) => {
   ok(res, { settings }, 'Settings');
 }));
 
-publicRouter.get('/translations', wrap(async (_req, res) => {
-  const rows = (await q(
-    `SELECT lang, t_key AS key, t_value AS value
-     FROM translations WHERE namespace='common'`)).rows;
-  ok(res, { translations: rows }, 'Translations');
-}));
-
 publicRouter.get('/departments', wrap(async (_req, res) => {
   const rows = (await q(
     `SELECT id, slug, name, name_am, description, location, phone

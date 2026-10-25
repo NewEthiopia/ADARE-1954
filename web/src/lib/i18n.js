@@ -77,26 +77,9 @@ const dict = {
   },
 };
 
-export const TRANSLATION_CATALOG = dict;
-let overrides = {};
-
 let lang = localStorage.getItem('agh_lang') || 'en';
 
-export function t(key) { return overrides[lang]?.[key] ?? dict[lang]?.[key] ?? dict.en[key] ?? key; }
-export function setTranslations(rows) {
-  overrides = rows.reduce((current, { lang: language, key, value }) => ({
-    ...current,
-    [language]: { ...(current[language] || {}), [key]: value },
-  }), {});
-  window.dispatchEvent(new CustomEvent('langchange'));
-}
-export function setTranslation(language, key, value) {
-  const languageOverrides = { ...(overrides[language] || {}) };
-  if (value.trim()) languageOverrides[key] = value;
-  else delete languageOverrides[key];
-  overrides = { ...overrides, [language]: languageOverrides };
-  window.dispatchEvent(new CustomEvent('langchange'));
-}
+export function t(key) { return dict[lang]?.[key] ?? dict.en[key] ?? key; }
 export function getLang() { return lang; }
 export function setLang(code) {
   if (!dict[code]) return;

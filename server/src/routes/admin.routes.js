@@ -72,12 +72,6 @@ adminRouter.post('/notifications/read', wrap(async (req, res) => {
 
 // ---------- staff management (admin only) ----------
 const STAFF_ROLES = ['super_admin','hospital_admin','hr_admin','receptionist','doctor','nurse','pharmacy','laboratory','finance','content_manager'];
-const PUBLIC_SETTING_KEYS = new Set([
-  'hospital_name', 'hospital_tagline', 'address', 'phone_main', 'phone_emergency',
-  'email_public', 'working_hours', 'stat_opd_attendances', 'stat_emergency_visits',
-  'stat_ipd_admissions', 'stat_total_staff', 'stat_health_professionals',
-  'stat_years_of_service', 'stat_departments', 'map_lat', 'map_lng', 'facebook_url',
-]);
 
 adminRouter.get('/users', requireRole(), wrap(async (_req, res) => {
   const rows = (await q(
@@ -241,13 +235,10 @@ adminRouter.get('/settings', requireRole('content_manager'), wrap(async (_req, r
   const rows = (await q('SELECT key, value, description, updated_at FROM hospital_settings ORDER BY key')).rows;
   ok(res, { settings: rows }, 'Settings');
 }));
-adminRouter.patch('/settings', requireRole('content_manager'), validate(z.object({
+adminRouter.patch('/settings', requireRole(), validate(z.object({
   key: z.string().min(2).max(80), value: z.string().max(4000),
-}).refine(({ key, value }) => {
-  if (key === 'site_heartbeat') return ['true', 'false'].includes(value);
-  return PUBLIC_SETTING_KEYS.has(key);
-}, {
-  message: 'Only approved public website settings may be changed.',
+}).refine(({ key, value }) => key !== 'site_heartbeat' || ['true', 'false'].includes(value), {
+  message: 'Heartbeat setting must be true or false.',
 })), wrap(async (req, res) => {
   if (req.body.key === 'site_heartbeat') {
     await q(
@@ -261,33 +252,6 @@ adminRouter.patch('/settings', requireRole('content_manager'), validate(z.object
   }
   await audit(req, 'SETTING_UPDATED', 'hospital_settings', req.body.key);
   ok(res, {}, 'Setting updated');
-}));
-
-// ---------- translation CMS ----------
-adminRouter.get('/translations', requireRole('content_manager'), wrap(async (_req, res) => {
-  const rows = (await q(
-    `SELECT lang, t_key AS key, t_value AS value
-     FROM translations WHERE namespace='common' ORDER BY lang, t_key`)).rows;
-  ok(res, { translations: rows }, 'Translations');
-}));
-adminRouter.patch('/translations', requireRole('content_manager'), validate(z.object({
-  lang: z.enum(['en', 'am', 'om', 'sid', 'ar', 'fr']),
-  key: z.string().regex(/^[A-Za-z][A-Za-z0-9]{0,119}$/),
-  value: z.string().max(2000),
-})), wrap(async (req, res) => {
-  const { lang, key, value } = req.body;
-  if (!value.trim()) {
-    await q('DELETE FROM translations WHERE lang=$1 AND namespace=$2 AND t_key=$3', [lang, 'common', key]);
-  } else {
-    await q(
-      `INSERT INTO translations (lang, namespace, t_key, t_value)
-       VALUES ($1, 'common', $2, $3)
-       ON CONFLICT (lang, namespace, t_key) DO UPDATE
-       SET t_value=EXCLUDED.t_value`,
-      [lang, key, value]);
-  }
-  await audit(req, 'TRANSLATION_UPDATED', 'translations', `${lang}.${key}`);
-  ok(res, {}, 'Translation updated');
 }));
 
 // ---------- contact inbox ----------

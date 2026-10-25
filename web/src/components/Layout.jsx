@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { get, STATIC_DEMO_MODE } from '../lib/api.js';
-import { t, getLang, setLang, setTranslations, LANGS } from '../lib/i18n.js';
+import { get } from '../lib/api.js';
+import { t, getLang, setLang, LANGS } from '../lib/i18n.js';
 import AssistantWidget from './AssistantWidget.jsx';
 
 export function useT() {
@@ -77,11 +77,6 @@ export default function Layout() {
   const location = useLocation();
   const [navOpen, setNavOpen] = useState(false);
   const [theme, setTheme] = useState(document.documentElement.dataset.theme);
-  useEffect(() => {
-    get('/translations')
-      .then(data => setTranslations(data.translations || []))
-      .catch(error => console.error('Unable to load website translations:', error));
-  }, []);
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
@@ -91,15 +86,10 @@ export default function Layout() {
   const phone = settings.phone_emergency || settings.phone_main || '';
   return (
     <>
-      {STATIC_DEMO_MODE && (
-        <div role="status" style={{ background: '#fff4d5', color: '#553c00', padding: '9px 16px', textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
-          DEMO PREVIEW · Non-production · directory content is illustrative · forms and sign-in are disabled · search stays in this browser and is not sent or stored. Do not enter personal or medical information.
-        </div>
-      )}
       <a className="skip-link" href="#main">Skip to main content</a>
       <div className="topbar">
         <div className="wrap">
-          <span>{settings.address || 'Hawassa, Sidama Regional State, Ethiopia'} · <a href={`tel:${phone.replace(/\s/g, '')}`}>{settings.phone_main || ''}</a></span>
+          <span>Hawassa, Sidama Regional State, Ethiopia · <a href={`tel:${phone.replace(/\s/g, '')}`}>{settings.phone_main || ''}</a></span>
           <span style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
             <span className="em">⚑ {tr('emergencyOpen')}</span>
             <select aria-label="Language" value={getLang()} onChange={e => setLang(e.target.value)}
@@ -119,7 +109,7 @@ export default function Layout() {
           <Link to="/" className="brand" aria-label="Adare General Hospital home">
             <picture><source srcSet="/logo-192.webp" type="image/webp" /><img className="seal" src="/logo-192.png" alt="Adare General Hospital logo" width="46" height="46" /></picture>
             <span>
-              <span className="t1">{settings.hospital_name || 'Adare General Hospital'}</span><br />
+              <span className="t1">Adare General Hospital</span><br />
               <span className="t2">Hawassa · Sidama · Ethiopia</span>
             </span>
           </Link>
@@ -146,7 +136,7 @@ export default function Layout() {
       <a className="btn btn-emergency fab-emergency" href={`tel:${phone.replace(/\s/g, '')}`}>
         ✆ {tr('callEmergency')}
       </a>
-      {!STATIC_DEMO_MODE && <AssistantWidget />}
+      <AssistantWidget />
 
       <footer className="footer">
         <div className="wrap">
@@ -154,10 +144,10 @@ export default function Layout() {
             <div>
               <div className="brand" style={{ marginBottom: 12 }}>
                 <picture><source srcSet="/logo-192.webp" type="image/webp" /><img className="seal" src="/logo-192.png" alt="Adare General Hospital logo" width="46" height="46" /></picture>
-                <span><span className="t1" style={{ color: '#fff' }}>{settings.hospital_name || 'Adare General Hospital'}</span><br />
+                <span><span className="t1" style={{ color: '#fff' }}>Adare General Hospital</span><br />
                   <span className="t2" style={{ color: '#8FA5B8' }}>Since 1954 E.C.</span></span>
               </div>
-              <p style={{ fontSize: 14 }}>{settings.address || 'Hawassa City, Sidama Regional State, Ethiopia'}<br />
+              <p style={{ fontSize: 14 }}>Hawassa City, Sidama Regional State, Ethiopia<br />
                 {settings.phone_main} · {settings.working_hours}</p>
             </div>
             <div>

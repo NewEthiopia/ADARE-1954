@@ -27,12 +27,15 @@ export default function AssistantWidget() {
     setBusy(true);
     try {
       const data = await post('/assistant/chat', { message: text, history });
+      if (typeof data.reply !== 'string' || !data.reply.trim()) {
+        throw new Error('The assistant returned an empty response.');
+      }
       setProvider(data.provider || '');
       setNotice(data.notice || '');
       setMessages(items => [...items, { from: 'bot', text: data.reply, links: data.links }]);
-    } catch {
-      setNotice('');
-      setMessages(items => [...items, { from: 'bot', text: 'I am temporarily unavailable. Please call 046 221 1661 or use the Contact page.' }]);
+    } catch (error) {
+      setNotice(error.message || 'The assistant could not connect. Please try again.');
+      setMessages(items => [...items, { from: 'bot', text: 'I could not get a response just now. Please try again, or call 046 221 1661 for hospital information.' }]);
     }
     finally { setBusy(false); }
   };

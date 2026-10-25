@@ -92,7 +92,7 @@ export default function Home() {
       <section className="hero">
         <div className="wrap">
           <div className="kicker">Public general hospital · Hawassa · Since 1954 E.C.</div>
-          <h1>{(settings.hospital_name || 'Adare General Hospital').toUpperCase()}<br /><em>{settings.hospital_tagline || tr('tagline')}</em></h1>
+          <h1>ADARE GENERAL HOSPITAL<br /><em>{tr('tagline')}</em></h1>
           <p className="sub">{tr('heroSub')}</p>
           <div className="cta-row">
             <Link to="/appointments" className="btn btn-primary">{tr('bookAppointment')}</Link>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { get, STATIC_DEMO_MODE } from '../lib/api.js';
+import { get } from '../lib/api.js';
 
 export default function News() {
   const [data, setData] = useState(null);
@@ -24,7 +24,7 @@ export default function News() {
       <div className="filter-row">
         <input aria-label="Search news" placeholder="Search news…" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} style={{ flex: '1 1 260px' }} />
       </div>
-      {!STATIC_DEMO_MODE && <section className="facebook-updates" aria-labelledby="facebook-updates-title">
+      <section className="facebook-updates" aria-labelledby="facebook-updates-title">
         <div>
           <span className="label">Community updates</span>
           <h3 id="facebook-updates-title">Latest from Facebook</h3>
@@ -43,7 +43,7 @@ export default function News() {
             allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
           />
         </div>
-      </section>}
+      </section>
       <div className="card-grid">
         {data === null && [...Array(6)].map((_, i) => <div key={i} className="skeleton" style={{ height: 150 }} />)}
         {data?.news.map(n => (

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { get } from '../lib/api.js';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { api, get } from '../lib/api.js';
 
 const PAGE_SIZE = 25;
 const FILTERS = [
@@ -96,6 +96,8 @@ export default function HRCredentialsView() {
   const [tab, setTab] = useState('overview');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
+  const [importState, setImportState] = useState({ busy: false, error: '', message: '' });
+  const fileInput = useRef(null);
 
   useEffect(() => {
     let current = true;
@@ -110,6 +112,34 @@ export default function HRCredentialsView() {
       });
     return () => { current = false; };
   }, []);
+
+  const importCredentials = async event => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      setImportState({ busy: false, error: 'Choose a .json credential export.', message: '' });
+      return;
+    }
+
+    const form = new FormData();
+    form.append('file', file);
+    setImportState({ busy: true, error: '', message: '' });
+    try {
+      const result = await api('/hr/credentials/import', { method: 'POST', body: form });
+      const data = await get('/hr/credentials');
+      setRecords(data.credentials || []);
+      setPage(1);
+      setSelected(null);
+      setImportState({
+        busy: false,
+        error: '',
+        message: `${result.imported_count.toLocaleString()} records imported or updated. Existing records omitted from this file were kept.`,
+      });
+    } catch (error) {
+      setImportState({ busy: false, error: error.message || 'Unable to import credentials.', message: '' });
+    }
+  };
 
   const options = useMemo(() => Object.fromEntries(FILTERS.map(([field]) => [
     field,
@@ -178,8 +208,16 @@ export default function HRCredentialsView() {
           <h2>Workforce Credentials Intelligence</h2>
           <p className="muted">Educational credentials report · May 2016 E.C. · {records.length.toLocaleString()} records</p>
         </div>
-        <button className="btn btn-outline btn-sm" onClick={exportCsv}>Export filtered CSV</button>
+        <div className="hr-actions">
+          <input ref={fileInput} type="file" accept=".json,application/json" onChange={importCredentials} hidden />
+          <button className="btn btn-outline btn-sm" disabled={importState.busy}
+            onClick={() => fileInput.current?.click()}>{importState.busy ? 'Importing…' : 'Import / update JSON'}</button>
+          <button className="btn btn-outline btn-sm" onClick={exportCsv}>Export filtered CSV</button>
+        </div>
       </header>
+      {importState.error && <p className="alert error" role="alert">{importState.error}</p>}
+      {importState.message && <p className="alert success" role="status">{importState.message}</p>}
+      {!records.length && <p className="alert" role="status">No credential records are loaded yet. Import the authorized HR JSON export to populate this dashboard.</p>}
 
       <div className="hr-filters" aria-label="Credential filters">
         <input aria-label="Search credentials" placeholder="Search staff, student ID, field, institution…" value={filters.q}

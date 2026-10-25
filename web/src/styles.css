@@ -541,6 +541,7 @@ tr:hover td { background: color-mix(in srgb, var(--ochre) 6%, transparent); }
 .hr-dashboard { display: grid; gap: 16px; }
 .hr-heading, .hr-card-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .hr-heading { padding: 20px; background: var(--navy-deep); color: #fff; border-radius: var(--radius); }
+.hr-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .hr-heading h2 { margin: 3px 0; color: #fff; font-size: clamp(19px, 2.8vw, 26px); }
 .hr-heading .muted { color: #C9D6E2; font-size: 13px; }
 .hr-heading .label { color: #FFD58C; }
