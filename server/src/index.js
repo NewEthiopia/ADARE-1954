@@ -15,6 +15,7 @@ import { pool } from './db.js';
 import { errorHandler, ok } from './http.js';
 import { requireAuth } from './auth.js';
 import { sseHandler } from './notify.js';
+import { runMigrations } from '../scripts/migrate.js';
 import { authRouter } from './routes/auth.routes.js';
 import { demoRouter } from './routes/demo.routes.js';
 import { publicRouter } from './routes/public.routes.js';
@@ -26,6 +27,7 @@ import { leadershipRouter } from './routes/leadership.routes.js';
 import { procurementRouter, procurementAdminRouter } from './routes/procurement.routes.js';
 import { assistantRouter } from './routes/assistant.routes.js';
 import { doctorsAdminRouter } from './routes/doctors.routes.js';
+import { hrRouter } from './routes/hr.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -80,6 +82,7 @@ app.use('/api/procurement', procurementRouter);
 app.use('/api/admin/procurement', procurementAdminRouter);
 app.use('/api/assistant', assistantRouter);
 app.use('/api/admin/doctors', doctorsAdminRouter);
+app.use('/api/hr', hrRouter);
 
 // public media (leader photos etc.) — long cache, immutable filenames
 app.use('/uploads', express.static(config.uploadDir, { maxAge: '30d', immutable: true }));
@@ -99,6 +102,17 @@ if (fs.existsSync(webDist)) {
 app.use((req, res) => res.status(404).json({ ok: false, code: 'NOT_FOUND', error: `No route ${req.method} ${req.path}` }));
 app.use(errorHandler);
 
-app.listen(config.port, '0.0.0.0', () => {
-  console.log(`[adare-platform] API listening on 0.0.0.0:${config.port} (${config.env})`);
-});
+async function startServer() {
+  try {
+    await runMigrations(false);
+  } catch (error) {
+    console.error('[adare-platform] migration failed:', error.message);
+    throw error;
+  }
+
+  app.listen(config.port, '0.0.0.0', () => {
+    console.log(`[adare-platform] API listening on 0.0.0.0:${config.port} (${config.env})`);
+  });
+}
+
+startServer();

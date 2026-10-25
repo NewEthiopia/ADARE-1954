@@ -1,5 +1,8 @@
 // Typed-style API client: envelope handling, auto token refresh, SSE.
+import { getDemoResponse } from './demoData.js';
+
 const API = '/api';
+export const STATIC_DEMO_MODE = import.meta.env.VITE_PUBLIC_DEMO_MODE === '1';
 let accessToken = null;
 let currentUser = null;
 let currentPatient = null;
@@ -41,6 +44,13 @@ async function raw(path, options = {}) {
 }
 
 export async function api(path, options = {}) {
+  if (STATIC_DEMO_MODE) {
+    const method = (options.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD') {
+      throw new Error('This read-only preview does not submit or store information.');
+    }
+    return repairLegacyText(getDemoResponse(path));
+  }
   let { res, payload } = await raw(path, options);
   if (res.status === 401 && payload.code === 'TOKEN_EXPIRED') {
     const refreshed = await tryRefresh();
@@ -55,6 +65,7 @@ export async function api(path, options = {}) {
 }
 
 export async function tryRefresh() {
+  if (STATIC_DEMO_MODE) return false;
   try {
     const { res, payload } = await raw('/auth/refresh', { method: 'POST' });
     if (!res.ok) return false;
@@ -69,6 +80,7 @@ export const patch = (p, body) => api(p, { method: 'PATCH', body: JSON.stringify
 
 // ---- SSE realtime (staff dashboards) ----
 export function connectEvents(onEvent) {
+  if (STATIC_DEMO_MODE) return null;
   if (!accessToken) return null;
   // EventSource cannot send headers; use fetch-based stream
   const controller = new AbortController();

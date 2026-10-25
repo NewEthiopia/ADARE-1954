@@ -50,7 +50,7 @@ function FeaturedCampaign() {
     <section className="block" aria-label="Featured announcement" style={{ paddingBottom: 0 }}>
       <div className="wrap">
         <div className="card" style={{ padding: 0, overflow: 'hidden', borderTop: '5px solid var(--red)', boxShadow: 'var(--shadow-lg)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', alignItems: 'center' }}>
             <Link to={`/news/${featured.slug}`} aria-label={featured.title}>
               <img src={featured.image_path} alt={featured.title} decoding="async"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', minHeight: 240 }} />
@@ -92,7 +92,7 @@ export default function Home() {
       <section className="hero">
         <div className="wrap">
           <div className="kicker">Public general hospital · Hawassa · Since 1954 E.C.</div>
-          <h1>ADARE GENERAL HOSPITAL<br /><em>{tr('tagline')}</em></h1>
+          <h1>{(settings.hospital_name || 'Adare General Hospital').toUpperCase()}<br /><em>{settings.hospital_tagline || tr('tagline')}</em></h1>
           <p className="sub">{tr('heroSub')}</p>
           <div className="cta-row">
             <Link to="/appointments" className="btn btn-primary">{tr('bookAppointment')}</Link>
@@ -173,7 +173,7 @@ export default function Home() {
       </section>
 
       <section className="block" aria-label="About the hospital">
-        <div className="wrap" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 30, alignItems: 'center' }}>
+        <div className="wrap" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 30, alignItems: 'center' }}>
           <div>
             <span className="label" style={{ fontFamily: 'var(--mono)', fontSize: 11.5, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--red)', fontWeight: 700 }}>Seven decades of service</span>
             <h2 style={{ fontSize: 'clamp(22px,3vw,32px)', color: 'var(--navy)', margin: '8px 0 14px' }}>About Adare General Hospital</h2>

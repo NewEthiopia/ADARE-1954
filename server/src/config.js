@@ -37,6 +37,13 @@ export const config = {
   smsProvider: process.env.SMS_PROVIDER || '',
   smsApiKey: process.env.SMS_API_KEY || '',
   smtpHost: process.env.SMTP_HOST || '',
+  smtpPort: Number(process.env.SMTP_PORT || 587),
+  smtpSecure: ['1', 'true'].includes((process.env.SMTP_SECURE || '').toLowerCase()),
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPassword: process.env.SMTP_PASSWORD || '',
+  smtpFrom: process.env.SMTP_FROM || process.env.SMTP_USER || '',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   paymentProvider: process.env.PAYMENT_PROVIDER || '',
   paymentApiKey: process.env.PAYMENT_API_KEY || '',
 };

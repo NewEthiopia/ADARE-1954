@@ -3,6 +3,7 @@
 // NEVER simulated: with no provider configured they are recorded as skipped.
 import { q } from './db.js';
 import { config } from './config.js';
+import nodemailer from 'nodemailer';
 
 // ---- SSE bus ----
 const clients = new Set();   // { res, role, userId }
@@ -52,4 +53,27 @@ export async function sendSms(phone, message, event, reference) {
   }
   // Implement the configured Ethiopian provider here (server-side key only).
   return { sent: false, reason: 'PROVIDER_IMPLEMENTATION_PENDING' };
+}
+
+let emailTransport;
+
+export async function sendEmail({ to, subject, text }) {
+  if (!config.smtpHost || !config.smtpFrom) {
+    return { sent: false, reason: 'SMTP_NOT_CONFIGURED' };
+  }
+  emailTransport ??= nodemailer.createTransport({
+    host: config.smtpHost,
+    port: config.smtpPort,
+    secure: config.smtpSecure,
+    ...(config.smtpUser && config.smtpPassword
+      ? { auth: { user: config.smtpUser, pass: config.smtpPassword } }
+      : {}),
+  });
+  const result = await emailTransport.sendMail({
+    from: config.smtpFrom,
+    to,
+    subject,
+    text,
+  });
+  return { sent: true, messageId: result.messageId };
 }

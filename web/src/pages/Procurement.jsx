@@ -34,7 +34,7 @@ export default function Procurement() {
         <span className="tag">{tender.reference}</span>
         <h3 style={{ marginTop: 10 }}>{tender.title}</h3>
         <p className="muted">{tender.description || 'Tender document available for purchase.'}</p>
-        <p style={{ marginTop: 12 }}><strong>{Number(tender.price).toFixed(2)} {tender.currency}</strong></p>
+        <p style={{ marginTop: 12 }}><strong>{tender.price ? `${Number(tender.price).toFixed(2)} ${tender.currency}` : 'Price not set'}</strong></p>
         {tender.deadline && <p className="meta">Deadline: {new Date(tender.deadline).toLocaleString()}</p>}
         <button className="btn btn-primary btn-sm" style={{ marginTop: 14 }} onClick={() => choose(tender)}>Pay &amp; request document</button>
       </article>)}

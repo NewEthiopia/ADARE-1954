@@ -5,16 +5,20 @@ import rateLimit from 'express-rate-limit';
 import { q, one, tx, nextReference } from '../db.js';
 import { ok, fail, wrap, validate } from '../http.js';
 import { requireAuth, requireRole, audit } from '../auth.js';
-import { notifyRole, notifyPatient, broadcast, sendSms } from '../notify.js';
+import { notifyRole, notifyPatient, broadcast, sendSms, sendEmail } from '../notify.js';
 
 export const appointmentsRouter = Router();
 
 const createLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
+const toIsoDate = (value) => value instanceof Date ? value.toISOString().slice(0, 10) : String(value || '').slice(0, 10);
+const toEthiopianDate = (value) => new Intl.DateTimeFormat('en-u-ca-ethiopic-nu-latn', {
+  year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
+}).format(new Date(`${toIsoDate(value)}T12:00:00Z`));
 
 const createSchema = z.object({
   patient_name: z.string().min(2).max(150),
   phone: z.string().regex(/^\+?[0-9\s-]{6,20}$/).transform(v => v.replace(/[\s-]/g, '')),
-  email: z.string().email().max(150).optional().or(z.literal('')),
+  email: z.string().email().max(150),
   gender: z.enum(['male', 'female', 'other']).optional(),
   date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
   department_id: z.number().int().positive().optional().nullable(),
@@ -70,6 +74,48 @@ appointmentsRouter.post('/', createLimiter, validate(createSchema), wrap(async (
     return row;
   });
 
+  const details = await one(
+    `SELECT d.name AS department, doc.full_name AS doctor, s.name AS service
+     FROM appointments a
+     LEFT JOIN departments d ON d.id=a.department_id
+     LEFT JOIN doctors doc ON doc.id=a.doctor_id
+     LEFT JOIN services s ON s.id=a.service_id
+     WHERE a.id=$1`, [appt.id]);
+  const ethiopianDate = toEthiopianDate(b.preferred_date);
+  const emailLines = [
+    `Hello ${b.patient_name},`,
+    '',
+    'We received your appointment request. It is pending review by the hospital reception team.',
+    '',
+    `Reference: ${appt.reference}`,
+    'Status: PENDING',
+    `Preferred date (Ethiopian calendar): ${ethiopianDate}`,
+    `Preferred date (Gregorian calendar): ${b.preferred_date}`,
+    `Preferred time: ${b.preferred_time || 'Any time'}`,
+    `Department: ${details?.department || 'Not selected'}`,
+    `Doctor: ${details?.doctor || 'Any available doctor'}`,
+    `Service: ${details?.service || 'General visit'}`,
+    '',
+    'Keep your reference number to check the request status on the hospital website. This is a request, not a confirmed appointment.',
+    '',
+    'Adare General Hospital',
+  ];
+  let emailSent = false;
+  try {
+    const delivery = await sendEmail({
+      to: b.email,
+      subject: `Appointment request received — ${appt.reference}`,
+      text: emailLines.join('\n'),
+    });
+    if (!delivery.sent) {
+      console.warn(`[email] appointment confirmation skipped for ${appt.reference}: ${delivery.reason}`);
+    } else {
+      emailSent = true;
+    }
+  } catch (error) {
+    console.error(`[email] appointment confirmation failed for ${appt.reference}:`, error.message);
+  }
+
   await audit(req, 'APPOINTMENT_CREATED', 'appointments', appt.reference, `date ${b.preferred_date}`);
   await notifyRole('receptionist', 'appointment_created', 'New appointment request',
     `${b.patient_name} requested ${b.preferred_date} (${appt.reference}).`, appt.reference);
@@ -78,7 +124,7 @@ appointmentsRouter.post('/', createLimiter, validate(createSchema), wrap(async (
   broadcast('appointment', { reference: appt.reference, status: 'PENDING' }, { roles: ['receptionist', 'doctor', 'nurse'] });
   await sendSms(b.phone, `Adare General Hospital: appointment request ${appt.reference} received for ${b.preferred_date}.`, 'appointment_submitted', appt.reference);
 
-  ok(res, { appointment: appt }, 'Appointment request submitted', 201);
+  ok(res, { appointment: appt, email_sent: emailSent }, 'Appointment request submitted', 201);
 }));
 
 // Public status lookup (reference + phone required — prevents enumeration)
@@ -174,11 +220,44 @@ appointmentsRouter.patch('/:reference', requireAuth, requireRole('receptionist',
       reschedule: `Your appointment ${reference} was rescheduled to ${req.body.scheduled_date}${req.body.scheduled_time ? ' ' + req.body.scheduled_time : ''}.`,
       cancel: `Your appointment ${reference} has been cancelled. ${note}`,
     };
+    let emailSent = false;
     if (patientMsgs[req.body.action]) {
       if (appt.patient_id) await notifyPatient(appt.patient_id, `appointment_${req.body.action}`, 'Appointment update', patientMsgs[req.body.action], reference);
       await sendSms(appt.phone, `Adare General Hospital: ${patientMsgs[req.body.action]}`, `appointment_${req.body.action}`, reference);
+      if (appt.email) {
+        const scheduledDate = req.body.scheduled_date || toIsoDate(appt.scheduled_date);
+        const message = [
+          `Hello ${appt.patient_name},`,
+          '',
+          patientMsgs[req.body.action],
+          '',
+          `Reference: ${reference}`,
+          `Status: ${t.to}`,
+          `Preferred date: ${toEthiopianDate(appt.preferred_date)} (${toIsoDate(appt.preferred_date)} Gregorian)`,
+          ...(scheduledDate
+            ? [`Scheduled date: ${toEthiopianDate(scheduledDate)} (${scheduledDate} Gregorian)`,
+              `Scheduled time: ${req.body.scheduled_time || appt.scheduled_time || 'Not specified'}`]
+            : []),
+          ...(note ? ['', `Reception note: ${note}`] : []),
+          '',
+          'Adare General Hospital',
+        ];
+        try {
+          const delivery = await sendEmail({
+            to: appt.email,
+            subject: `Appointment update — ${reference}`,
+            text: message.join('\n'),
+          });
+          emailSent = delivery.sent;
+          if (!delivery.sent) {
+            console.warn(`[email] appointment update skipped for ${reference}: ${delivery.reason}`);
+          }
+        } catch (error) {
+          console.error(`[email] appointment update failed for ${reference}:`, error.message);
+        }
+      }
     }
-    ok(res, { appointment: { reference, status: t.to } }, `Appointment ${t.to.toLowerCase()}`);
+    ok(res, { appointment: { reference, status: t.to }, email_sent: emailSent }, `Appointment ${t.to.toLowerCase()}`);
   }));
 
 appointmentsRouter.get('/:reference/history', requireAuth, requireRole('receptionist', 'doctor', 'nurse'),

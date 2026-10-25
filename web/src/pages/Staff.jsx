@@ -2,9 +2,11 @@
 // news CMS, users, audit, reports — role-aware navigation, server-enforced RBAC.
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { api, get, post, patch, auth, connectEvents, tryRefresh } from '../lib/api.js';
+import HRCredentialsView from '../components/HRCredentialsView.jsx';
+import { LANGS, TRANSLATION_CATALOG, setTranslation } from '../lib/i18n.js';
 
 const NAV = [
-  ['dashboard', '▦ Dashboard', null],
+  ['dashboard', '▦ Dashboard', ['receptionist', 'doctor', 'nurse', 'finance', 'content_manager', 'pharmacy', 'laboratory']],
   ['appointments', '🗓 Appointments', ['receptionist', 'doctor', 'nurse']],
   ['patients', '👥 Patients', ['receptionist', 'doctor', 'nurse']],
   ['payments', '₵ Payments', ['finance', 'receptionist']],
@@ -14,7 +16,8 @@ const NAV = [
   ['messages', '✉ Messages', ['content_manager']],
   ['leadership', '🏛 Leadership', ['content_manager']],
   ['users', '♟ Staff users', []],
-  ['settings', '⚙ Site settings', []],
+  ['credentials', '🎓 Staff credentials', ['hr_admin', 'hospital_admin', 'super_admin']],
+  ['settings', '⚙ Website content', ['content_manager']],
   ['audit', '≡ Audit log', []],
   ['reports', '📈 Reports', ['finance', 'receptionist']],
 ];
@@ -96,7 +99,7 @@ function Login({ onDone }) {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 18, maxWidth: 760, margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 18, maxWidth: 760, margin: '0 auto' }}>
           <form onSubmit={submit} style={{ background: 'var(--surface)', borderRadius: 12, padding: '26px 24px', borderTop: '5px solid var(--red)' }}>
             <h2 style={{ fontSize: 18, color: 'var(--navy)', marginBottom: 4 }}>Custom Login</h2>
             <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Staff username or patient phone/email. Every action is recorded in the audit log.</p>
@@ -198,7 +201,7 @@ function DashboardView({ go }) {
         <div className="kpi red"><div className="v">{k.pending_payments}</div><div className="l">Pending payments</div></div>
         <div className="kpi"><div className="v">{k.active_staff}</div><div className="l">Active staff</div></div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 16 }}>
         <div className="panel"><h3>Appointments · 14 days</h3><Bars rows={d.appointments_by_day} labelKey="day" valueKey="c" /></div>
         <div className="panel"><h3>Revenue · 14 days</h3><Bars rows={d.revenue_by_day} labelKey="day" valueKey="v" blue /></div>
         <div className="panel"><h3>Patient registrations</h3><Bars rows={d.registrations_by_day} labelKey="day" valueKey="c" /></div>
@@ -373,7 +376,7 @@ function PatientsView({ toast }) {
         <div className="panel">
           <h3>{profile.patient.full_name} <span className="mono muted" style={{ fontSize: 13 }}>{profile.patient.patient_number}</span>
             <button className="btn btn-ghost btn-sm" onClick={() => setProfile(null)}>✕ Close</button></h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))', gap: 16 }}>
             <div><h4 style={{ marginBottom: 8 }}>Appointments</h4>
               <div className="table-wrap"><table><tbody>
                 {profile.appointments.map(a => <tr key={a.reference}><td className="mono">{a.reference}</td><td>{a.department || '—'}</td><td><span className={`status-pill st-${a.status}`}>{a.status}</span></td></tr>)}
@@ -676,7 +679,7 @@ function UsersView({ toast }) {
           <div className="field"><label>Full name *</label><input required value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} /></div>
           <div className="field"><label>Role *</label>
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-              {['receptionist', 'doctor', 'nurse', 'pharmacy', 'laboratory', 'finance', 'content_manager', 'hospital_admin'].map(r => <option key={r}>{r}</option>)}
+              {['receptionist', 'doctor', 'nurse', 'pharmacy', 'laboratory', 'finance', 'content_manager', 'hr_admin', 'hospital_admin'].map(r => <option key={r}>{r}</option>)}
             </select></div>
           <div className="field"><label>Temp password * (min 10)</label><input required minLength={10} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} /></div>
           <div className="full"><button className="btn btn-primary btn-sm">Create user</button></div>
@@ -762,11 +765,11 @@ function ProcurementView({ toast }) {
     <form className="panel" onSubmit={upload}>
       <h3>Upload tender / procurement document</h3>
       <p className="muted" style={{ marginBottom: 14 }}>Buyers must submit payment. Finance verifies it, then an administrator releases the file.</p>
-      <div className="form-grid"><div className="field"><label htmlFor="td-title">Title</label><input id="td-title" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div><div className="field"><label htmlFor="td-price">Price (ETB)</label><input id="td-price" required type="number" min="0.01" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div><div className="field"><label htmlFor="td-deadline">Deadline</label><input id="td-deadline" type="datetime-local" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} /></div><div className="field"><label htmlFor="td-file">Tender file</label><input id="td-file" required type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip" onChange={e => setForm({ ...form, document: e.target.files?.[0] || null })} /></div></div>
+      <div className="form-grid"><div className="field"><label htmlFor="td-title">Title</label><input id="td-title" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div><div className="field"><label htmlFor="td-price">Price (ETB, optional)</label><input id="td-price" type="number" min="0.01" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div><div className="field"><label htmlFor="td-deadline">Deadline</label><input id="td-deadline" type="datetime-local" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} /></div><div className="field"><label htmlFor="td-file">Tender file</label><input id="td-file" required type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip" onChange={e => setForm({ ...form, document: e.target.files?.[0] || null })} /></div></div>
       <div className="field"><label htmlFor="td-description">Description</label><textarea id="td-description" rows="3" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
       <button className="btn btn-primary">Upload and publish</button>
     </form>
-    <div className="panel"><h3>Tender documents</h3><div className="table-wrap"><table><thead><tr><th>Reference</th><th>Title</th><th>Price</th><th>Payments</th><th>Release</th><th>Action</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td className="mono">{row.reference}</td><td>{row.title}</td><td>{row.price} {row.currency}</td><td>{row.payment_count} total · {row.pending_payments} pending</td><td>{row.released_at ? new Date(row.released_at).toLocaleString() : 'Locked'}</td><td>{row.released_at ? <span className="status-pill st-CONFIRMED">released</span> : <button className="btn btn-outline btn-sm" onClick={() => release(row)}>Release file</button>}</td></tr>)}{!rows.length && <tr><td colSpan="6" className="muted">No tender documents.</td></tr>}</tbody></table></div></div>
+    <div className="panel"><h3>Tender documents</h3><div className="table-wrap"><table><thead><tr><th>Reference</th><th>Title</th><th>Price</th><th>Payments</th><th>Release</th><th>Action</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td className="mono">{row.reference}</td><td>{row.title}</td><td>{row.price ? `${row.price} ${row.currency}` : 'Not set'}</td><td>{row.payment_count} total · {row.pending_payments} pending</td><td>{row.released_at ? new Date(row.released_at).toLocaleString() : 'Locked'}</td><td>{row.released_at ? <span className="status-pill st-CONFIRMED">released</span> : <button className="btn btn-outline btn-sm" onClick={() => release(row)}>Release file</button>}</td></tr>)}{!rows.length && <tr><td colSpan="6" className="muted">No tender documents.</td></tr>}</tbody></table></div></div>
   </>;
 }
 
@@ -808,7 +811,7 @@ function ReportsView({ toast }) {
       {report && (
         <>
           <p className="muted" style={{ marginBottom: 14 }}>Period {report.from} → {report.to} · cancellations/no-shows: <strong>{report.cancellations}</strong></p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))', gap: 16 }}>
             <div><h4 style={{ marginBottom: 8 }}>By department</h4>
               <div className="table-wrap"><table><tbody>
                 {report.by_department.map(r => <tr key={r.department}><td>{r.department}</td><td><strong>{r.c}</strong></td></tr>)}
@@ -826,25 +829,40 @@ function ReportsView({ toast }) {
 
 function SettingsView({ toast }) {
   const [heartbeat, setHeartbeat] = useState(null);
+  const [settings, setSettings] = useState([]);
+  const [translations, setTranslations] = useState([]);
+  const [section, setSection] = useState('details');
+  const [language, setLanguage] = useState('en');
+  const [drafts, setDrafts] = useState({});
+  const [translationDrafts, setTranslationDrafts] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    get('/settings').then(data => {
-      setHeartbeat(data.settings?.site_heartbeat === 'true');
-    }).catch(err => setError(err.message));
+    Promise.all([get('/admin/settings'), get('/admin/translations')])
+      .then(([settingsData, translationData]) => {
+        const editable = (settingsData.settings || []).filter(row =>
+          row.key === 'site_heartbeat' || EDITABLE_SETTING_KEYS.has(row.key));
+        setSettings(editable);
+        setHeartbeat(editable.find(row => row.key === 'site_heartbeat')?.value === 'true');
+        setDrafts(Object.fromEntries(editable.map(row => [row.key, row.value])));
+        setTranslations(translationData.translations || []);
+      })
+      .catch(err => setError(err.message));
   }, []);
 
-  const toggleHeartbeat = async () => {
-    if (heartbeat === null || busy) return;
-    const next = !heartbeat;
+  const saveSetting = async (key, value = drafts[key] ?? '') => {
     setBusy(true);
     setError('');
     try {
-      await patch('/admin/settings', { key: 'site_heartbeat', value: String(next) });
-      setHeartbeat(next);
-      window.dispatchEvent(new CustomEvent('site-heartbeat-change', { detail: { enabled: next } }));
-      toast(`Website heartbeat ${next ? 'enabled' : 'disabled'}`);
+      await patch('/admin/settings', { key, value });
+      setSettings(rows => rows.map(row => row.key === key ? { ...row, value } : row));
+      if (key === 'site_heartbeat') {
+        const enabled = value === 'true';
+        setHeartbeat(enabled);
+        window.dispatchEvent(new CustomEvent('site-heartbeat-change', { detail: { enabled } }));
+      }
+      toast('Website setting saved');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -852,29 +870,120 @@ function SettingsView({ toast }) {
     }
   };
 
+  const saveTranslation = async (key) => {
+    const value = translationDrafts[key] ?? getTranslationValue(translations, language, key);
+    setBusy(true);
+    setError('');
+    try {
+      await patch('/admin/translations', { lang: language, key, value });
+      setTranslations(rows => {
+        const remaining = rows.filter(row => !(row.lang === language && row.key === key));
+        return value.trim() ? [...remaining, { lang: language, key, value }] : remaining;
+      });
+      setTranslationDrafts(current => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+      setTranslation(language, key, value);
+      toast(`${LANGS.find(item => item.code === language)?.label || language} translation saved`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleHeartbeat = async () => {
+    if (heartbeat === null || busy) return;
+    const next = !heartbeat;
+    const value = String(next);
+    setDrafts(current => ({ ...current, site_heartbeat: value }));
+    await saveSetting('site_heartbeat', value);
+  };
+
   return (
     <div className="panel">
-      <h3>Website appearance</h3>
-      <p className="muted" style={{ marginBottom: 16 }}>
-        Control the animated heartbeat effect shown across the public hospital website.
-      </p>
+      <h3>Website content</h3>
+      <p className="muted" style={{ marginBottom: 16 }}>Manage public hospital details, statistics, appearance, and translations used by navigation and shared website labels.</p>
       {error && <div className="alert error" role="alert" style={{ marginBottom: 14 }}>{error}</div>}
-      <div className="site-setting-row">
-        <div>
-          <strong>Heartbeat animation</strong>
-          <p className="muted" style={{ fontSize: 13 }}>
-            {heartbeat === null ? 'Loading setting…' : heartbeat ? 'Currently visible to website visitors.' : 'Currently hidden from website visitors.'}
-          </p>
-        </div>
-        <button type="button" className={`site-setting-toggle ${heartbeat ? 'on' : ''}`}
-          role="switch" aria-checked={heartbeat === true} aria-label="Heartbeat animation"
-          disabled={heartbeat === null || busy} onClick={toggleHeartbeat}>
-          <span />
-          {busy ? 'Saving…' : heartbeat ? 'On' : 'Off'}
-        </button>
+      <div className="filter-row" role="tablist" aria-label="Website content sections">
+        {[['details', 'Site details'], ['translations', 'Translations'], ['appearance', 'Appearance']].map(([key, label]) =>
+          <button key={key} type="button" className={`btn ${section === key ? 'btn-primary' : 'btn-outline'}`}
+            role="tab" aria-selected={section === key} onClick={() => setSection(key)}>{label}</button>)}
       </div>
+      {section === 'details' && (
+        <div className="form-grid" style={{ marginTop: 18 }}>
+          {settings.filter(row => row.key !== 'site_heartbeat').map(row => (
+            <div className="field" key={row.key}>
+              <label htmlFor={`setting-${row.key}`}>{row.description || row.key}</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input id={`setting-${row.key}`} value={drafts[row.key] ?? ''}
+                  onChange={event => setDrafts(current => ({ ...current, [row.key]: event.target.value }))} />
+                <button type="button" className="btn btn-outline btn-sm" disabled={busy || drafts[row.key] === row.value}
+                  onClick={() => saveSetting(row.key)}>Save</button>
+              </div>
+            </div>
+          ))}
+          {!settings.length && <p className="muted">Loading website settings…</p>}
+        </div>
+      )}
+      {section === 'translations' && (
+        <>
+          <div className="field" style={{ maxWidth: 320, marginTop: 18 }}>
+            <label htmlFor="translation-language">Language</label>
+            <select id="translation-language" value={language} onChange={event => setLanguage(event.target.value)}>
+              {LANGS.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}
+            </select>
+          </div>
+          <p className="muted">Blank values use the built-in translation. Updates apply to public navigation and shared labels wherever those translation keys are used.</p>
+          <div className="table-wrap" style={{ marginTop: 12 }}>
+            <table><thead><tr><th>Key</th><th>Default</th><th>Website text</th><th></th></tr></thead>
+              <tbody>{Object.entries(TRANSLATION_CATALOG[language] || {}).map(([key, defaultValue]) => {
+                const currentValue = translationDrafts[key] ?? getTranslationValue(translations, language, key) ?? defaultValue;
+                const savedValue = getTranslationValue(translations, language, key) ?? defaultValue;
+                return <tr key={key}>
+                  <td className="mono">{key}</td>
+                  <td className="muted">{defaultValue}</td>
+                  <td><textarea aria-label={`${key} translation`} rows={2} value={currentValue}
+                    onChange={event => setTranslationDrafts(current => ({ ...current, [key]: event.target.value }))} /></td>
+                  <td><button type="button" className="btn btn-outline btn-sm" disabled={busy || currentValue === savedValue}
+                    onClick={() => saveTranslation(key)}>Save</button></td>
+                </tr>;
+              })}</tbody>
+            </table>
+          </div>
+        </>
+      )}
+      {section === 'appearance' && (
+        <div className="site-setting-row" style={{ marginTop: 18 }}>
+          <div>
+            <strong>Heartbeat animation</strong>
+            <p className="muted" style={{ fontSize: 13 }}>
+              {heartbeat === null ? 'Loading setting…' : heartbeat ? 'Currently visible to website visitors.' : 'Currently hidden from website visitors.'}
+            </p>
+          </div>
+          <button type="button" className={`site-setting-toggle ${heartbeat ? 'on' : ''}`}
+            role="switch" aria-checked={heartbeat === true} aria-label="Heartbeat animation"
+            disabled={heartbeat === null || busy} onClick={toggleHeartbeat}>
+            <span />
+            {busy ? 'Saving…' : heartbeat ? 'On' : 'Off'}
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+const EDITABLE_SETTING_KEYS = new Set([
+  'hospital_name', 'hospital_tagline', 'address', 'phone_main', 'phone_emergency',
+  'email_public', 'working_hours', 'stat_opd_attendances', 'stat_emergency_visits',
+  'stat_ipd_admissions', 'stat_total_staff', 'stat_health_professionals',
+  'stat_years_of_service', 'stat_departments', 'map_lat', 'map_lng', 'facebook_url',
+]);
+
+function getTranslationValue(rows, language, key) {
+  return rows.find(row => row.lang === language && row.key === key)?.value;
 }
 
 /* -------------------- Shell -------------------- */
@@ -927,10 +1036,12 @@ export default function Staff() {
     news: <NewsView toast={toast} />, messages: <MessagesView toast={toast} />,
     leadership: <LeadershipView toast={toast} />,
     procurement: <ProcurementView toast={toast} />,
+    credentials: <HRCredentialsView />,
     doctors: <DoctorImagesView toast={toast} />,
     users: <UsersView toast={toast} />, settings: <SettingsView toast={toast} />,
     audit: <AuditView toast={toast} />, reports: <ReportsView toast={toast} />,
   };
+  const activeView = items.some(([key]) => key === view) ? view : items[0]?.[0] || 'dashboard';
 
   return (
     <div className="dash">
@@ -945,7 +1056,7 @@ export default function Staff() {
         </div>
         <nav className="dash-nav" aria-label="Staff navigation">
           {items.map(([v, label]) => (
-            <button key={v} className={view === v ? 'active' : ''} onClick={() => { setView(v); setSideOpen(false); }}>{label}</button>
+            <button key={v} className={activeView === v ? 'active' : ''} onClick={() => { setView(v); setSideOpen(false); }}>{label}</button>
           ))}
           <button onClick={signOut} style={{ marginTop: 12, color: '#FFB3B6' }}>⎋ Sign out</button>
           <a href="/" style={{ display: 'block', padding: '12px 18px', fontSize: 13.5, color: '#8FA5B8' }}>← Public website</a>
@@ -954,7 +1065,7 @@ export default function Staff() {
       <div className="dash-main">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <button className="btn btn-outline btn-sm" style={{ display: 'inline-flex' }} onClick={() => setSideOpen(o => !o)} aria-label="Toggle menu">☰</button>
-          <h2 style={{ color: 'var(--navy)', fontSize: 20, marginRight: 'auto', textTransform: 'capitalize' }}>{view}</h2>
+          <h2 style={{ color: 'var(--navy)', fontSize: 20, marginRight: 'auto', textTransform: 'capitalize' }}>{activeView}</h2>
           <div style={{ position: 'relative' }}>
             <button className="btn btn-outline btn-sm" aria-label={`Notifications, ${notif.unread} unread`}
               onClick={() => setNotif(n => ({ ...n, open: !n.open }))}>
@@ -978,7 +1089,7 @@ export default function Staff() {
             )}
           </div>
         </div>
-        {views[view]}
+        {views[activeView]}
       </div>
       <Toasts items={toasts} />
     </div>

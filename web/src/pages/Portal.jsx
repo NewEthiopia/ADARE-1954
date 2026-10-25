@@ -1,6 +1,6 @@
 // Patient portal (spec §11): register/login, dashboard, appointments,
 // payments, notifications, profile — all from PostgreSQL via the API.
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { get, post, patch, auth } from '../lib/api.js';
 
@@ -8,6 +8,30 @@ function AuthView({ onDone }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ username: '', password: '', full_name: '', phone: '', email: '', date_of_birth: '' });
   const [state, setState] = useState({ busy: false, error: '' });
+  const touchStart = useRef(null);
+  const switchMode = (nextMode) => {
+    if (state.busy || mode === nextMode) return;
+    setMode(nextMode);
+    setState(current => ({ ...current, error: '' }));
+  };
+  const handleTouchStart = (event) => {
+    const target = event.target;
+    if (target.closest('input, button, select, textarea, a, [contenteditable="true"]')) {
+      touchStart.current = null;
+      return;
+    }
+    const touch = event.changedTouches[0];
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+  const handleTouchEnd = (event) => {
+    if (!touchStart.current || state.busy) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - touchStart.current.x;
+    const dy = touch.clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    switchMode(dx < 0 ? 'register' : 'login');
+  };
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const submit = async (e) => {
     e.preventDefault();
@@ -32,13 +56,19 @@ function AuthView({ onDone }) {
     setState({ busy: false, error: '' });
   };
   return (
-    <div style={{ maxWidth: 460, margin: '0 auto' }}>
-      <div className="filter-row" role="tablist" aria-label="Portal access">
-        <button role="tab" aria-selected={mode === 'login'} className={`btn ${mode === 'login' ? 'btn-navy' : 'btn-outline'}`} style={{ flex: 1 }} onClick={() => setMode('login')}>Sign in</button>
-        <button role="tab" aria-selected={mode === 'register'} className={`btn ${mode === 'register' ? 'btn-navy' : 'btn-outline'}`} style={{ flex: 1 }} onClick={() => setMode('register')}>Create account</button>
+    <div
+      className="portal-auth"
+      style={{ maxWidth: 460, margin: '0 auto' }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className="filter-row portal-auth-tabs" role="tablist" aria-label="Portal access">
+        <button type="button" role="tab" id="portal-login-tab" aria-controls="portal-auth-panel" aria-selected={mode === 'login'} tabIndex={mode === 'login' ? 0 : -1} className={`btn ${mode === 'login' ? 'btn-navy' : 'btn-outline'}`} style={{ flex: 1 }} onClick={() => switchMode('login')}>Sign in</button>
+        <button type="button" role="tab" id="portal-register-tab" aria-controls="portal-auth-panel" aria-selected={mode === 'register'} tabIndex={mode === 'register' ? 0 : -1} className={`btn ${mode === 'register' ? 'btn-navy' : 'btn-outline'}`} style={{ flex: 1 }} onClick={() => switchMode('register')}>Create account</button>
       </div>
+      <p className="portal-swipe-hint" aria-hidden="true">Swipe left to create an account · swipe right to sign in</p>
       {state.error && <div className="alert error" role="alert">{state.error}</div>}
-      <form onSubmit={submit} className="panel">
+      <form key={mode} onSubmit={submit} className="panel portal-auth-panel" id="portal-auth-panel" role="tabpanel" aria-labelledby={mode === 'login' ? 'portal-login-tab' : 'portal-register-tab'}>
         {mode === 'login' ? (
           <>
             <div className="field"><label htmlFor="p-user">Phone number or Email address</label>

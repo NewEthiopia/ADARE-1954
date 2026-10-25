@@ -22,13 +22,7 @@ const fallbackServices = [
   { id: 'mch', slug: 'antenatal-care', name: 'Antenatal Care', description: 'Pregnancy follow-up, screening and birth planning.', available_days: 'Mon-Fri', working_hours: '8:00-17:00', emergency: false, bookable: true, department: 'Maternal & Child Health' },
 ];
 const fallbackDoctors = [{ id: 'team', full_name: 'Adare Clinical Team', title: 'Healthcare Professionals', specialty: 'General care', department: 'Outpatient Department', working_days: 'Mon-Fri', working_hours: '8:00-17:00' }];
-const fallbackNews = [{
-  id: 'fallback-campaign', slug: 'free-kiremt-health-screening-campaign',
-  title: 'ነፃ የጤና ምርመራ! Free Kiremt Volunteer Health Screening Campaign',
-  excerpt: 'Adare General Hospital invites the community to free health screening services under the kiremt goodwill program.',
-  image_path: '/uploads/news/free-screening-campaign.jpg', is_featured: true,
-  category: 'Notices', category_slug: 'notices', publish_at: '2026-08-15T00:00:00.000Z',
-}];
+const fallbackNews = [];
 
 const decodeLegacyText = (value) => {
   if (value == null) return value;
@@ -57,6 +51,13 @@ publicRouter.get('/settings', wrap(async (_req, res) => {
   const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
   settings.site_heartbeat ??= 'true';
   ok(res, { settings }, 'Settings');
+}));
+
+publicRouter.get('/translations', wrap(async (_req, res) => {
+  const rows = (await q(
+    `SELECT lang, t_key AS key, t_value AS value
+     FROM translations WHERE namespace='common'`)).rows;
+  ok(res, { translations: rows }, 'Translations');
 }));
 
 publicRouter.get('/departments', wrap(async (_req, res) => {

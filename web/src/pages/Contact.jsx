@@ -27,7 +27,7 @@ export default function Contact() {
       <div className="sec-head" style={{ marginTop: 10 }}>
         <div><span className="label">Get in touch</span><h2>Contact &amp; Directions</h2></div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 24 }}>
         <div>
           <div className="panel">
             <h3>Hospital details</h3>

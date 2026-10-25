@@ -39,6 +39,7 @@ procurementRouter.get('/:id(\\d+)', wrap(async (req, res) => {
 procurementRouter.post('/:id(\\d+)/payments', validate(paymentSchema), wrap(async (req, res) => {
   const tender = await one(`SELECT id, reference, price, currency, status, deadline FROM procurement_tenders WHERE id=$1`, [Number(req.params.id)]);
   if (!tender || tender.status !== 'PUBLISHED') throw fail(404, 'NOT_FOUND', 'Tender is not available.');
+  if (!tender.price) throw fail(422, 'VALIDATION', 'This tender does not have a price set. No payment is required for this document.');
   if (tender.deadline && new Date(tender.deadline) < new Date()) throw fail(409, 'CLOSED', 'The tender deadline has passed.');
   const b = req.body;
   if (b.provider_ref) {
@@ -82,7 +83,7 @@ procurementAdminRouter.use(requireAuth, requireRole('content_manager'));
 const tenderSchema = z.object({
   title: z.string().min(3).max(240),
   description: z.string().max(5000).optional().or(z.literal('')),
-  price: z.coerce.number().positive().max(10_000_000),
+  price: z.coerce.number().positive().max(10_000_000).optional().or(z.literal('')).or(z.null().optional()),
   deadline: z.string().optional().or(z.literal('')),
 });
 
@@ -99,6 +100,7 @@ procurementAdminRouter.post('/', documentUpload.single('document'), validate(ten
   const ext = path.extname(req.file.originalname).toLowerCase();
   const allowed = new Set(['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.zip']);
   if (!allowed.has(ext)) throw fail(415, 'UPLOAD_TYPE', 'Use PDF, Word, Excel, or ZIP tender documents.');
+  const priceValue = req.body.price === '' || req.body.price === undefined || req.body.price === null ? null : Number(req.body.price);
   const reference = `AGH-TDR-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
   const dir = path.join(process.env.PRIVATE_DIR || path.join(process.cwd(), 'storage', 'private'), 'procurement');
   fs.mkdirSync(dir, { recursive: true });
@@ -107,7 +109,7 @@ procurementAdminRouter.post('/', documentUpload.single('document'), validate(ten
   fs.writeFileSync(filePath, req.file.buffer, { mode: 0o640 });
   const row = await one(`INSERT INTO procurement_tenders (reference, title, description, price, deadline, file_name, file_path, status, created_by)
     VALUES ($1,$2,$3,$4,$5,$6,$7,'PUBLISHED',$8) RETURNING id, reference, title, price, currency, deadline, status`,
-    [reference, req.body.title, req.body.description || null, req.body.price, req.body.deadline || null, req.file.originalname, filePath, req.user.id]);
+    [reference, req.body.title, req.body.description || null, priceValue, req.body.deadline || null, req.file.originalname, filePath, req.user.id]);
   await audit(req, 'PROCUREMENT_CREATED', 'procurement_tenders', row.id, `${reference} · ${req.file.originalname}`);
   ok(res, { tender: row }, 'Tender uploaded', 201);
 }));

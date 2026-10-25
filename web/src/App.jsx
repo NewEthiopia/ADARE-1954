@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { tryRefresh, auth } from './lib/api.js';
+import { tryRefresh, auth, STATIC_DEMO_MODE } from './lib/api.js';
 import Layout from './components/Layout.jsx';
 import Home from './pages/Home.jsx';
 
@@ -27,7 +27,13 @@ function ScrollTop() {
 
 export default function App() {
   const [booted, setBooted] = useState(false);
-  useEffect(() => { tryRefresh().finally(() => setBooted(true)); }, []);
+  useEffect(() => {
+    if (STATIC_DEMO_MODE) {
+      setBooted(true);
+      return;
+    }
+    tryRefresh().finally(() => setBooted(true));
+  }, []);
   if (!booted) return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }} className="muted">Loading…</div>;
   return (
     <>
@@ -42,20 +48,32 @@ export default function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/news" element={<NewsPage />} />
             <Route path="/news/:slug" element={<NewsArticlePage />} />
-            <Route path="/appointments" element={<AppointmentPage />} />
-            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/appointments" element={STATIC_DEMO_MODE ? <PreviewUnavailable feature="Appointments" /> : <AppointmentPage />} />
+            <Route path="/contact" element={STATIC_DEMO_MODE ? <PreviewUnavailable feature="Contact forms" /> : <ContactPage />} />
             <Route path="/emergency" element={<EmergencyPage />} />
             <Route path="/health-education" element={<HealthEdPage />} />
-            <Route path="/portal" element={<PortalPage />} />
-            <Route path="/procurement" element={<ProcurementPage />} />
+            <Route path="/portal" element={STATIC_DEMO_MODE ? <PreviewUnavailable feature="Patient portal" /> : <PortalPage />} />
+            <Route path="/procurement" element={STATIC_DEMO_MODE ? <PreviewUnavailable feature="Procurement payments" /> : <ProcurementPage />} />
             <Route path="/privacy" element={<PolicyPage kind="privacy" />} />
             <Route path="/terms" element={<PolicyPage kind="terms" />} />
             <Route path="*" element={<NotFound />} />
           </Route>
-          <Route path="/staff/*" element={<StaffPage />} />
+          <Route path="/staff/*" element={STATIC_DEMO_MODE ? <PreviewUnavailable feature="Staff administration" /> : <StaffPage />} />
         </Routes>
       </Suspense>
     </>
+  );
+}
+
+function PreviewUnavailable({ feature }) {
+  return (
+    <div className="wrap" style={{ padding: '70px 20px', maxWidth: 720, textAlign: 'center' }}>
+      <span className="tag ochre">Read-only demo</span>
+      <h1 style={{ color: 'var(--navy)', margin: '16px 0 10px' }}>This feature is unavailable in the preview</h1>
+      <p><strong>{feature}</strong></p>
+      <p className="muted">This non-production preview does not submit or store information. Do not enter personal or medical information.</p>
+      <p style={{ marginTop: 20 }}><a className="btn btn-primary" href="/">Return to the preview</a></p>
+    </div>
   );
 }
 

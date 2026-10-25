@@ -13,13 +13,13 @@
       "Error": { "type": "object", "properties": { "ok": { "type": "boolean", "example": false }, "code": { "type": "string" }, "error": { "type": "string" } } },
       "AppointmentCreate": {
         "type": "object",
-        "required": ["patient_name", "phone", "preferred_date"],
+        "required": ["patient_name", "phone", "email", "preferred_date"],
         "properties": {
           "patient_name": { "type": "string" }, "phone": { "type": "string", "example": "0911223344" },
-          "email": { "type": "string" }, "gender": { "enum": ["male", "female", "other"] },
+          "email": { "type": "string", "format": "email" }, "gender": { "enum": ["male", "female", "other"] },
           "date_of_birth": { "type": "string", "format": "date" },
           "department_id": { "type": "integer" }, "doctor_id": { "type": "integer" }, "service_id": { "type": "integer" },
-          "preferred_date": { "type": "string", "format": "date" }, "preferred_time": { "type": "string" },
+          "preferred_date": { "type": "string", "format": "date", "description": "Gregorian ISO date. The public booking form accepts Ethiopian calendar dates and converts them before submission." }, "preferred_time": { "type": "string" },
           "reason": { "type": "string" }, "is_emergency": { "type": "boolean" },
           "insurance_type": { "enum": ["none", "cbhi", "private", "other"] }, "notes": { "type": "string" }
         }
@@ -55,7 +55,7 @@
     "/search": { "get": { "summary": "Global public search", "parameters": [{ "name": "q", "in": "query", "required": true }], "responses": { "200": { "description": "Mixed results" } } } },
     "/contact": { "post": { "summary": "Submit contact message (stored, admin inbox)", "responses": { "200": { "description": "Received" } } } },
     "/appointments": {
-      "post": { "summary": "Book appointment → AGH-APT reference", "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppointmentCreate" } } } }, "responses": { "201": { "description": "PENDING appointment" }, "409": { "description": "Duplicate" }, "422": { "description": "Validation" } } },
+      "post": { "summary": "Book appointment → AGH-APT reference and email confirmation", "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppointmentCreate" } } } }, "responses": { "201": { "description": "PENDING appointment; response includes whether confirmation email was sent" }, "409": { "description": "Duplicate" }, "422": { "description": "Validation" } } },
       "get": { "security": [{ "bearerAuth": [] }], "summary": "Staff appointment list (filters: status, date, department_id, doctor_id, q)", "responses": { "200": { "description": "Appointments" }, "403": { "description": "Role not allowed" } } }
     },
     "/appointments/status": { "get": { "summary": "Public status lookup (reference + phone)", "responses": { "200": { "description": "Status" }, "404": { "description": "Not found" } } } },
@@ -77,6 +77,7 @@
     "/payments/summary": { "get": { "security": [{ "bearerAuth": [] }], "summary": "Revenue KPIs", "responses": { "200": { "description": "Summary" } } } },
     "/payments/export/csv": { "get": { "security": [{ "bearerAuth": [] }], "summary": "CSV export (finance)", "responses": { "200": { "description": "CSV file" } } } },
     "/admin/dashboard": { "get": { "security": [{ "bearerAuth": [] }], "summary": "KPIs + chart data", "responses": { "200": { "description": "Dashboard" } } } },
+    "/hr/credentials": { "get": { "security": [{ "bearerAuth": [] }], "summary": "Staff educational credentials (HR administrators and hospital administrators only; audited, no-store)", "responses": { "200": { "description": "Credential records" }, "401": { "description": "Authentication required" }, "403": { "description": "HR/admin role required" } } } },
     "/admin/notifications": { "get": { "security": [{ "bearerAuth": [] }], "summary": "Staff notification feed", "responses": { "200": { "description": "Feed + unread count" } } } },
     "/admin/users": {
       "get": { "security": [{ "bearerAuth": [] }], "summary": "List staff (admin)", "responses": { "200": { "description": "Users" } } },

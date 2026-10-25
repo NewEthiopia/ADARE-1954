@@ -4,4 +4,5 @@ dist/
 storage/logs/
 *.log
 .dev-accounts.md
-
+.copilot-azure/
+server/data/hospital-educational-credentials.json
