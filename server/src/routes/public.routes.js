@@ -55,6 +55,7 @@ publicRouter.get('/settings', wrap(async (_req, res) => {
   try { rows = (await q(`SELECT key, value FROM hospital_settings WHERE key NOT LIKE 'internal\\_%'`)).rows; }
   catch { rows = Object.entries(fallbackSettings).map(([key, value]) => ({ key, value })); }
   const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  settings.site_heartbeat ??= 'true';
   ok(res, { settings }, 'Settings');
 }));
 

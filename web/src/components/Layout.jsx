@@ -17,6 +17,15 @@ export function useT() {
 export function useSettings() {
   const [settings, setSettings] = useState({});
   useEffect(() => { get('/settings').then(d => setSettings(d.settings || {})).catch(() => {}); }, []);
+  useEffect(() => {
+    const applyHeartbeat = (enabled) => {
+      document.documentElement.dataset.heartbeat = enabled ? 'enabled' : 'disabled';
+    };
+    applyHeartbeat(settings.site_heartbeat === 'true');
+    const handleChange = (event) => applyHeartbeat(event.detail.enabled);
+    window.addEventListener('site-heartbeat-change', handleChange);
+    return () => window.removeEventListener('site-heartbeat-change', handleChange);
+  }, [settings.site_heartbeat]);
   return settings;
 }
 

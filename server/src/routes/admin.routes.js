@@ -237,9 +237,19 @@ adminRouter.get('/settings', requireRole('content_manager'), wrap(async (_req, r
 }));
 adminRouter.patch('/settings', requireRole(), validate(z.object({
   key: z.string().min(2).max(80), value: z.string().max(4000),
+}).refine(({ key, value }) => key !== 'site_heartbeat' || ['true', 'false'].includes(value), {
+  message: 'Heartbeat setting must be true or false.',
 })), wrap(async (req, res) => {
-  const r = await q('UPDATE hospital_settings SET value=$1, updated_at=now() WHERE key=$2', [req.body.value, req.body.key]);
-  if (!r.rowCount) throw fail(404, 'NOT_FOUND', 'Unknown setting key.');
+  if (req.body.key === 'site_heartbeat') {
+    await q(
+      `INSERT INTO hospital_settings (key, value, description)
+       VALUES ('site_heartbeat', $1, 'Enable the animated heartbeat effect across the public website')
+       ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`,
+      [req.body.value]);
+  } else {
+    const r = await q('UPDATE hospital_settings SET value=$1, updated_at=now() WHERE key=$2', [req.body.value, req.body.key]);
+    if (!r.rowCount) throw fail(404, 'NOT_FOUND', 'Unknown setting key.');
+  }
   await audit(req, 'SETTING_UPDATED', 'hospital_settings', req.body.key);
   ok(res, {}, 'Setting updated');
 }));

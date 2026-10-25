@@ -14,6 +14,7 @@ const NAV = [
   ['messages', '✉ Messages', ['content_manager']],
   ['leadership', '🏛 Leadership', ['content_manager']],
   ['users', '♟ Staff users', []],
+  ['settings', '⚙ Site settings', []],
   ['audit', '≡ Audit log', []],
   ['reports', '📈 Reports', ['finance', 'receptionist']],
 ];
@@ -823,6 +824,59 @@ function ReportsView({ toast }) {
   );
 }
 
+function SettingsView({ toast }) {
+  const [heartbeat, setHeartbeat] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    get('/settings').then(data => {
+      setHeartbeat(data.settings?.site_heartbeat === 'true');
+    }).catch(err => setError(err.message));
+  }, []);
+
+  const toggleHeartbeat = async () => {
+    if (heartbeat === null || busy) return;
+    const next = !heartbeat;
+    setBusy(true);
+    setError('');
+    try {
+      await patch('/admin/settings', { key: 'site_heartbeat', value: String(next) });
+      setHeartbeat(next);
+      window.dispatchEvent(new CustomEvent('site-heartbeat-change', { detail: { enabled: next } }));
+      toast(`Website heartbeat ${next ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="panel">
+      <h3>Website appearance</h3>
+      <p className="muted" style={{ marginBottom: 16 }}>
+        Control the animated heartbeat effect shown across the public hospital website.
+      </p>
+      {error && <div className="alert error" role="alert" style={{ marginBottom: 14 }}>{error}</div>}
+      <div className="site-setting-row">
+        <div>
+          <strong>Heartbeat animation</strong>
+          <p className="muted" style={{ fontSize: 13 }}>
+            {heartbeat === null ? 'Loading setting…' : heartbeat ? 'Currently visible to website visitors.' : 'Currently hidden from website visitors.'}
+          </p>
+        </div>
+        <button type="button" className={`site-setting-toggle ${heartbeat ? 'on' : ''}`}
+          role="switch" aria-checked={heartbeat === true} aria-label="Heartbeat animation"
+          disabled={heartbeat === null || busy} onClick={toggleHeartbeat}>
+          <span />
+          {busy ? 'Saving…' : heartbeat ? 'On' : 'Off'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* -------------------- Shell -------------------- */
 export default function Staff() {
   const [ready, setReady] = useState(false);
@@ -874,7 +928,8 @@ export default function Staff() {
     leadership: <LeadershipView toast={toast} />,
     procurement: <ProcurementView toast={toast} />,
     doctors: <DoctorImagesView toast={toast} />,
-    users: <UsersView toast={toast} />, audit: <AuditView toast={toast} />, reports: <ReportsView toast={toast} />,
+    users: <UsersView toast={toast} />, settings: <SettingsView toast={toast} />,
+    audit: <AuditView toast={toast} />, reports: <ReportsView toast={toast} />,
   };
 
   return (
