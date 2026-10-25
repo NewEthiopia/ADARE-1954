@@ -111,7 +111,7 @@ gunzip < backup.sql.gz | docker compose exec -T db psql -U agh adare_platform
 | Integration | Where | Behaviour when unconfigured |
 |---|---|---|
 | SMS provider | `server/src/notify.js` → `sendSms()` | Logged as skipped; nothing marked sent |
-| Email/SMTP | `.env` `SMTP_*` | Disabled |
+| Email/SMTP | `.env` `SMTP_*` | Disabled until SMTP host is configured; sender defaults to `appointments@adaregeneralhospital.com` |
 | Telebirr gateway | `payments` provider_ref + manual verification | Finance verifies manually |
 | Object storage | `.env` `STORAGE_*` | Local `storage/` directory |
 | Maps API | Contact page uses OpenStreetMap links | Works without key |
