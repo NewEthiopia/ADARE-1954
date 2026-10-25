@@ -4,17 +4,6 @@ import { get, initials } from '../lib/api.js';
 import { useT, useSettings } from '../components/Layout.jsx';
 import LeadershipCarousel from '../components/LeadershipCarousel.jsx';
 
-const fallbackNews = [{
-  id: 'fallback-campaign',
-  slug: 'free-kiremt-health-screening-campaign',
-  title: 'ነፃ የጤና ምርመራ! Free Kiremt Volunteer Health Screening Campaign',
-  excerpt: 'Adare General Hospital invites the community to free health screening services under the kiremt goodwill program — blood pressure, diabetes, cervical and breast cancer screening, eye and ear examinations, HIV and hepatitis testing, blood donation and more.',
-  image_path: '/uploads/news/free-screening-campaign.jpg',
-  is_featured: true,
-  category: 'Notices',
-  publish_at: '2026-08-15T00:00:00.000Z',
-}];
-
 function CountUp({ value }) {
   const [n, setN] = useState(0);
   const ref = useRef(null);
@@ -54,7 +43,7 @@ function FeaturedCampaign() {
   useEffect(() => {
     get('/news?per_page=6').then(d => {
       setFeatured((d.news || []).find(n => n.is_featured && n.image_path) || null);
-    }).catch(() => setFeatured(fallbackNews[0]));
+    }).catch(() => {});
   }, []);
   if (!featured) return null;
   return (
@@ -88,23 +77,13 @@ function FeaturedCampaign() {
 export default function Home() {
   const tr = useT();
   const settings = useSettings();
-  const [liveAt, setLiveAt] = useState(null);
   const [services, setServices] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [news, setNews] = useState([]);
   useEffect(() => {
     get('/services').then(d => setServices((d.services || []).slice(0, 6))).catch(() => {});
     get('/doctors').then(d => setDoctors((d.doctors || []).slice(0, 3))).catch(() => {});
-    get('/news?per_page=3').then(d => setNews(d.news?.length ? d.news : fallbackNews)).catch(() => setNews(fallbackNews));
-  }, []);
-  useEffect(() => {
-    const stream = new EventSource('/api/live');
-    const update = (event) => {
-      try { setLiveAt(JSON.parse(event.data).serverTime); } catch {}
-    };
-    stream.addEventListener('connected', update);
-    stream.addEventListener('heartbeat', update);
-    return () => stream.close();
+    get('/news?per_page=3').then(d => setNews(d.news || [])).catch(() => {});
   }, []);
   const phone = (settings.phone_emergency || '').replace(/\s/g, '');
 
@@ -113,7 +92,6 @@ export default function Home() {
       <section className="hero">
         <div className="wrap">
           <div className="kicker">Public general hospital · Hawassa · Since 1954 E.C.</div>
-          <div className="live-pill" aria-live="polite"><span className="live-dot" /> {liveAt ? 'Live hospital updates connected' : 'Connecting to live updates...'}</div>
           <h1>ADARE GENERAL HOSPITAL<br /><em>{tr('tagline')}</em></h1>
           <p className="sub">{tr('heroSub')}</p>
           <div className="cta-row">
@@ -130,7 +108,7 @@ export default function Home() {
           <Link to="/doctors" className="quick-card"><span className="ico">🩺</span><h3>{tr('findDoctor')}</h3><p>Search our healthcare professionals by specialty.</p><span className="go">Search →</span></Link>
           <Link to="/portal" className="quick-card ochre"><span className="ico">👤</span><h3>{tr('portal')}</h3><p>Track appointments, payments and notifications.</p><span className="go">Sign in →</span></Link>
           <Link to="/emergency" className="quick-card red"><span className="ico">🚑</span><h3>{tr('emergency')}</h3><p>Open 24 hours, every day. Come directly or call.</p><span className="go">Emergency info →</span></Link>
-          <Link to="/services?department=pharmacy" className="quick-card green"><span className="ico">💊</span><h3>{tr('pharmacy')}</h3><p>Six units: OPD (new building), Emergency 24/7, Inpatient, ART, Community One &amp; Two.</p><span className="go">Details →</span></Link>
+          <Link to="/services?department=pharmacy" className="quick-card green"><span className="ico">💊</span><h3>{tr('pharmacy')}</h3><p>OPD, emergency, inpatient and community pharmacies.</p><span className="go">Details →</span></Link>
           <Link to="/services?department=laboratory" className="quick-card"><span className="ico">🔬</span><h3>{tr('laboratory')}</h3><p>EAS-accredited laboratory with GeneXpert testing.</p><span className="go">Details →</span></Link>
         </div>
       </div>
@@ -146,48 +124,6 @@ export default function Home() {
             <div className="stat-cell"><div className="n"><CountUp value={settings.stat_opd_attendances} /></div><div className="l">OPD attendances in the latest year</div></div>
             <div className="stat-cell"><div className="n"><CountUp value={settings.stat_emergency_visits} /></div><div className="l">Emergency visits in the same year</div></div>
             <div className="stat-cell"><div className="n">24/7</div><div className="l">Emergency availability</div></div>
-          </div>
-        </div>
-      </section>
-
-      <section className="block evolution-section" aria-labelledby="evolution-title">
-        <div className="wrap">
-          <div className="evolution-heading">
-            <span className="label">Our Evolution · የዕድገት ጉዞ</span>
-            <h2 id="evolution-title">From a Malaria Clinic to a Comprehensive Hospital</h2>
-            <p className="muted">Seven decades of growth in service of Hawassa and the Sidama Region — and the journey continues.</p>
-          </div>
-          <div className="evolution-track">
-            <article className="evolution-step">
-              <div className="evolution-icon" aria-hidden="true">🦟</div>
-              <span className="evolution-index">01</span>
-              <h3>Malaria Clinic</h3><p className="evolution-am">የወባ ክሊኒክ</p>
-              <p className="muted">The institution began its journey as a malaria clinic, serving the community's most urgent public-health need of the era.</p>
-            </article>
-            <article className="evolution-step">
-              <div className="evolution-icon" aria-hidden="true">🏥</div>
-              <span className="evolution-index">02</span>
-              <h3>Health Center</h3><p className="evolution-am">ጤና ጣቢያ</p>
-              <p className="muted">Growing services and staff saw the clinic upgraded to a health center, adding preventive care, maternal services and outpatient treatment.</p>
-            </article>
-            <article className="evolution-step">
-              <div className="evolution-icon" aria-hidden="true">🏨</div>
-              <span className="evolution-index">03</span>
-              <h3>Primary Hospital</h3><p className="evolution-am">የመጀመሪያ ደረጃ ሆስፒታል</p>
-              <p className="muted">As Adare Primary Hospital, the institution provided inpatient care, emergency services and surgical capacity to Hawassa and its surroundings.</p>
-            </article>
-            <article className="evolution-step current">
-              <div className="evolution-icon" aria-hidden="true">⚕️</div>
-              <span className="evolution-index">04 · Today · ዛሬ</span>
-              <h3>General Hospital</h3><p className="evolution-am">አጠቃላይ ሆስፒታል</p>
-              <p className="muted">Today's Adare General Hospital serves a catchment of over 1.3 million people with 12 departments, an accredited laboratory, and 712 staff.</p>
-            </article>
-            <article className="evolution-step future">
-              <div className="evolution-icon" aria-hidden="true">🌟</div>
-              <span className="evolution-index">05 · Running toward · በጉዞ ላይ</span>
-              <h3>Comprehensive Hospital</h3><p className="evolution-am">ኮምፕረሄንሲቭ ሆስፒታል</p>
-              <p className="muted">The journey continues: Adare is running to become a comprehensive hospital — expanding specialty services, capacity and technology for the region.</p>
-            </article>
           </div>
         </div>
       </section>
@@ -212,23 +148,25 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="block alt" aria-label="Find a doctor">
+      <section className="block alt doctor-preview" aria-label="Find a doctor">
         <div className="wrap">
           <div className="sec-head">
             <div><span className="label">Our team</span><h2>{tr('findDoctor')}</h2></div>
-            <Link className="more" to="/doctors">Full directory →</Link>
+            <Link className="doctor-directory-link" to="/doctors">Full directory <span aria-hidden="true">→</span></Link>
           </div>
           <div className="card-grid">
-            {doctors.map(d => (
-              <div className="card doc-card" key={d.id}>
+            {doctors.map((d, i) => (
+              <article className="card doc-card doctor-preview-card" key={d.id} style={{ '--doctor-index': i }}>
                 <DoctorPhoto doctor={d} />
-                <div>
+                <div className="doctor-preview-info">
                   <h3>{d.full_name}</h3>
                   <p className="muted" style={{ fontSize: 13.5 }}>{d.title} · {d.department}</p>
                   <p className="meta" style={{ margin: '6px 0 10px' }}>{d.working_days} · {d.working_hours}</p>
-                  <Link className="btn btn-outline btn-sm" to={`/appointments?doctor=${d.id}`}>{tr('bookAppointment')}</Link>
+                  <Link className="btn btn-outline btn-sm doctor-preview-book" to={`/appointments?doctor=${d.id}`}>
+                    {tr('bookAppointment')} <span aria-hidden="true">→</span>
+                  </Link>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </div>

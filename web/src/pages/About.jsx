@@ -20,6 +20,20 @@ export default function About() {
         <p>Adare General Hospital opened in <strong>1954 E.C.</strong> (Ethiopian calendar) to provide preventive and curative health services to
           Hawassa, capital of the Sidama Regional State, roughly 275 km south of Addis Ababa. Its catchment area has
           grown to an estimated population of more than 1.3 million.</p>
+        <section className="hospital-history" aria-labelledby="hospital-history-title">
+          <h2 id="hospital-history-title">A history of growth</h2>
+          <ol className="history-timeline">
+            <li><span className="history-year">1954 E.C.</span><strong>Clinic</strong></li>
+            <li><span className="history-year">1974 E.C.</span><strong>Health Center</strong></li>
+            <li><span className="history-year">1999 E.C.</span><strong>Health Center &amp; MNCH Center</strong></li>
+            <li><span className="history-year">2003 E.C.</span><strong>Primary Hospital</strong></li>
+            <li><span className="history-year">2008 E.C.</span><strong>General Hospital</strong></li>
+          </ol>
+          <div className="history-catchment">
+            <strong>Serving more than 1.3 million people</strong>
+            <p>Adare General Hospital serves Hawassa City and nearby communities in the Sidama Region and West Arsi.</p>
+          </div>
+        </section>
         <p>In the latest reporting year the hospital provided <strong>{Number(settings.stat_opd_attendances || 0).toLocaleString()}</strong> outpatient
           (OPD) attendances, <strong>{Number(settings.stat_emergency_visits || 0).toLocaleString()}</strong> emergency visits and{' '}
           <strong>{Number(settings.stat_ipd_admissions || 0).toLocaleString()}</strong> inpatient admissions. Today it employs{' '}

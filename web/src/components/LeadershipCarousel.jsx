@@ -269,23 +269,48 @@ export default function LeadershipCarousel() {
           ))}
         </div>
 
-        {/* ---------- historical timeline ---------- */}
-        <div className="lh-timeline" aria-label="Hospital history timeline">
-          <div className="lh-tl-track" aria-hidden="true" />
-          {[
-            ['1954 E.C.', 'Beginning'],
-            ['', 'Adare Primary Hospital'],
-            ['', 'Successive managers'],
-            ['', 'Hospital expansion'],
-            ['', 'Adare General Hospital'],
-            ['', 'Current leadership'],
-          ].map(([year, label], i, arr) => (
-            <div className={`lh-tl-node ${i === arr.length - 1 ? 'end' : ''} ${i === 0 ? 'start' : ''}`} key={label}>
-              <span className="lh-tl-dot" aria-hidden="true" />
-              {year && <span className="lh-tl-year">{year}</span>}
-              <span className="lh-tl-label">{label}</span>
-            </div>
-          ))}
+        {/* ---------- hospital history road ---------- */}
+        <div className="lh-roadmap" role="img" aria-label="Hospital history: Clinic in 1954 E.C., Health Center in 1974 E.C., Health Center and MNCH Center in 1999 E.C., Primary Hospital in 2003 E.C., and General Hospital in 2008 E.C.">
+          <svg className="lh-road" viewBox="0 0 1200 430" preserveAspectRatio="none" aria-hidden="true">
+            <path className="lh-road-edge" d="M 0 175 C 180 175, 180 205, 340 210 S 520 245, 660 260 S 820 300, 940 280 S 1070 220, 1200 220" />
+            <path className="lh-road-surface" d="M 0 175 C 180 175, 180 205, 340 210 S 520 245, 660 260 S 820 300, 940 280 S 1070 220, 1200 220" />
+            <path className="lh-road-center" d="M 0 175 C 180 175, 180 205, 340 210 S 520 245, 660 260 S 820 300, 940 280 S 1070 220, 1200 220" />
+            {[
+              { x: 120, y: 175, cardY: 12, year: '1954 E.C.', lines: ['Clinic'] },
+              { x: 345, y: 211, cardY: 322, year: '1974 E.C.', lines: ['Health Center'] },
+              { x: 575, y: 248, cardY: 12, year: '1999 E.C.', lines: ['Health Center &', 'MNCH Center'] },
+              { x: 815, y: 293, cardY: 322, year: '2003 E.C.', lines: ['Primary Hospital'] },
+              { x: 1060, y: 233, cardY: 12, year: '2008 E.C.', lines: ['General Hospital'] },
+            ].map((milestone, index) => {
+              const above = milestone.cardY < milestone.y;
+              const cardCenter = milestone.x;
+              const stemStart = above ? milestone.cardY + 74 : milestone.y + 12;
+              const stemEnd = above ? milestone.y - 12 : milestone.cardY;
+              const labelY = milestone.year ? milestone.cardY + 20 : milestone.cardY + 29;
+              return (
+                <g className={`lh-road-milestone ${milestone.current ? 'current' : ''}`} key={milestone.lines.join('-')}
+                  style={{ '--milestone-index': index }}>
+                  <path className="lh-road-stem" d={`M ${milestone.x} ${stemStart} L ${milestone.x} ${stemEnd}`} />
+                  <circle className="lh-road-marker-halo" cx={milestone.x} cy={milestone.y} r="15" />
+                  <circle className="lh-road-marker" cx={milestone.x} cy={milestone.y} r="8" />
+                  <rect className="lh-road-card" x={cardCenter - 82} y={milestone.cardY} width="164" height="74" rx="12" />
+                  {milestone.year && <text className="lh-road-year" x={cardCenter} y={labelY} textAnchor="middle">{milestone.year}</text>}
+                  <text className="lh-road-label" x={cardCenter} y={milestone.year ? labelY + 23 : labelY} textAnchor="middle">
+                    {milestone.lines.map((line, lineIndex) => (
+                      <tspan key={line} x={cardCenter} dy={lineIndex === 0 ? 0 : 17}>{line}</tspan>
+                    ))}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+          <ol className="lh-road-sr">
+            <li>1954 E.C.: Clinic</li>
+            <li>1974 E.C.: Health Center</li>
+            <li>1999 E.C.: Health Center and MNCH Center</li>
+            <li>2003 E.C.: Primary Hospital</li>
+            <li>2008 E.C.: General Hospital</li>
+          </ol>
         </div>
       </div>
     </section>
