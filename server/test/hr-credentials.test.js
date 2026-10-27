@@ -23,6 +23,12 @@ test('accepts credential records and supplies omitted optional fields', () => {
   assert.equal(result.data[0].origName, '');
 });
 
+test('accepts numeric serial numbers and stores them as strings', () => {
+  const result = credentialsSchema.safeParse([{ ...credential(1), sn: 12 }]);
+  assert.equal(result.success, true);
+  assert.equal(result.data[0].sn, '12');
+});
+
 test('rejects duplicate or invalid record IDs', () => {
   assert.equal(credentialsSchema.safeParse([credential(1), credential(1)]).success, false);
   assert.equal(credentialsSchema.safeParse([{ ...credential(0), id: 0 }]).success, false);

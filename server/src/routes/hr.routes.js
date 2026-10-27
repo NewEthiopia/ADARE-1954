@@ -9,7 +9,10 @@ export const hrRouter = Router();
 
 const credentialRecord = z.object({
   id: z.number().int().positive(),
-  sn: z.string().max(100).optional().default(''),
+  sn: z.union([z.string().max(100), z.number().finite()])
+    .transform(value => String(value))
+    .optional()
+    .default(''),
   name: z.string().max(300).optional().default(''),
   origName: z.string().max(300).optional().default(''),
   stId: z.string().max(150).optional().default(''),
