@@ -33,8 +33,17 @@ const COLUMNS = [
   ['prog', 'Modality'],
   ['gradYr', 'Grad. year'],
   ['audit', 'Audit status'],
+  ['documentLink', 'Document'],
 ];
 const labelValue = value => value == null || String(value).trim() === '' ? '—' : String(value);
+const safeDocumentUrl = value => {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+};
 
 function Distribution({ rows, field, title, onSelect }) {
   const values = useMemo(() => {
@@ -77,9 +86,13 @@ function RecordTable({ rows, onSelect }) {
                   onSelect(row);
                 }
               }}>
-              {COLUMNS.map(([field]) => (
-                <td key={field}>{labelValue(row[field])}</td>
-              ))}
+              {COLUMNS.map(([field]) => {
+                if (field !== 'documentLink') return <td key={field}>{labelValue(row[field])}</td>;
+                const link = safeDocumentUrl(row.documentLink);
+                return <td key={field}>{link
+                  ? <a href={link} target="_blank" rel="noopener noreferrer">Open document</a>
+                  : labelValue(row.documentLink)}</td>;
+              })}
             </tr>
           ))}
           {!rows.length && <tr><td colSpan={COLUMNS.length} className="muted">No records match these filters.</td></tr>}

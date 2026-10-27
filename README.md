@@ -151,8 +151,11 @@ Staff app → **Leadership** view provides the full admin UI
 The staff app's **Staff credentials** view is restricted to HR and hospital
 administrators. It reads credential records from PostgreSQL and supports
 search, filters, summaries, profile inspection, and filtered CSV export.
-Authorized administrators can import a JSON array of credential records using
-**Import / update JSON** (up to 2 MB and 5,000 records). Each record must have
+Authorized administrators can import a JSON array of credential records or a
+grouped employee report using **Import / update JSON** (up to 2 MB and 5,000
+credential records). Grouped reports are flattened into one row per education
+credential with stable record IDs; supported document links remain available
+in the restricted record view. Each flat record must have
 a unique positive integer `id`; records with matching IDs are updated, while
 existing records omitted from an upload are preserved. Each record may include
 staff name, student ID, institution, education, study, and audit fields.

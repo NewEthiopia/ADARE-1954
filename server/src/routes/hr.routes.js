@@ -32,6 +32,7 @@ const credentialRecord = z.object({
   recType: z.string().max(150).optional().default(''),
   audit: z.string().max(150).optional().default(''),
   missing: z.number().int().nonnegative().optional().default(0),
+  documentLink: z.string().max(2048).optional().default(''),
 }).strict();
 
 export const credentialsSchema = z.array(credentialRecord).min(1).max(5000).superRefine((records, context) => {
@@ -47,6 +48,45 @@ export const credentialsSchema = z.array(credentialRecord).min(1).max(5000).supe
     ids.add(record.id);
   });
 });
+
+const firstText = (record, keys) => {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return '';
+  for (const key of keys) {
+    if (typeof record[key] === 'string' && record[key].trim()) return record[key].trim();
+    if (typeof record[key] === 'number' && Number.isFinite(record[key])) return String(record[key]);
+  }
+  return '';
+};
+
+export function normalizeGroupedCredentials(input) {
+  if (!Array.isArray(input) || !input.length || !input.every(record => record && Array.isArray(record.credentials))) {
+    return input;
+  }
+
+  return input.flatMap(employee => employee.credentials.map((credential, index) => {
+    const employeeId = employee.id;
+    if (!credential || typeof credential !== 'object' || Array.isArray(credential)) return credential;
+    return {
+      id: 8_000_000_000_000_000 + employeeId * 10 + index,
+      sn: firstText(employee, ['serialNumber', 'serial_number', 'sn']),
+      name: firstText(employee, ['fullName', 'full_name', 'name']),
+      stId: firstText(credential, ['studentId', 'student_id']),
+      origInst: firstText(credential, ['nameOfInstitutionAttended', 'name_of_institution_attended', 'institutionAttended', 'institution_attended', 'institution']),
+      origLevel: firstText(credential, ['levelOfEducation', 'level_of_education', 'level']),
+      origField: firstText(credential, ['fieldOfStudy', 'field_of_study', 'field']),
+      origCampus: firstText(credential, ['campus']),
+      origProg: firstText(credential, ['educationProgram', 'education_program', 'program']),
+      admYr: firstText(credential, ['yearOfAdmission', 'yearOfAdimission', 'year_of_admission', 'year_of_adimission', 'admissionYear']),
+      gradYr: firstText(credential, ['yearOfGraduation', 'year_of_graduation', 'graduationYear']),
+      remarks: firstText(credential, ['remarks']),
+      level: firstText(credential, ['levelOfEducation', 'level_of_education', 'level']),
+      inst: firstText(credential, ['nameOfInstitutionAttended', 'name_of_institution_attended', 'institutionAttended', 'institution_attended', 'institution']),
+      prog: firstText(credential, ['educationProgram', 'education_program', 'program']),
+      campus: firstText(credential, ['campus']),
+      documentLink: firstText(credential, ['attachedDocumentLink', 'attached_document_link', 'documentLink']),
+    };
+  }));
+}
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024, files: 1 },
@@ -86,7 +126,7 @@ hrRouter.post(
       throw fail(422, 'INVALID_JSON', 'The uploaded file is not valid JSON.');
     }
 
-    const parsed = credentialsSchema.safeParse(input);
+    const parsed = credentialsSchema.safeParse(normalizeGroupedCredentials(input));
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       throw fail(422, 'INVALID_CREDENTIALS', `Credential data is invalid at ${issue.path.join('.') || 'input'}: ${issue.message}`);
