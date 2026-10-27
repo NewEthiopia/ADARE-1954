@@ -4,6 +4,29 @@ import { get, initials } from '../lib/api.js';
 import { useT, useSettings } from '../components/Layout.jsx';
 import LeadershipCarousel from '../components/LeadershipCarousel.jsx';
 
+const hospitalPhotos = [
+  { src: 'hospital-exterior-aerial.jpg', alt: 'Aerial view of Adare General Hospital and its grounds', caption: 'Adare General Hospital' },
+  { src: 'hospital-inauguration-team.jpg', alt: 'Hospital team gathered outside the main entrance', caption: 'Our hospital team' },
+  { src: 'clinical-team-gathering.jpg', alt: 'Hospital leaders visiting with healthcare professionals inside the hospital', caption: 'Leaders visiting our hospital' },
+  { src: 'clinical-laboratory.jpg', alt: 'Clinical laboratory with diagnostic equipment and workstations', caption: 'Clinical laboratory' },
+  { src: 'consultation-room.jpg', alt: 'Patient consultation room with examination bed and desk', caption: 'Patient consultation room' },
+  { src: 'pharmacy-counter.jpg', alt: 'Hospital pharmacy counter and medicine shelves', caption: 'Hospital pharmacy' },
+  { src: 'laboratory-equipment.jpg', alt: 'Laboratory workstations and diagnostic equipment', caption: 'Laboratory services' },
+  { src: 'patient-reception.jpg', alt: 'Reception team at the hospital welcome desk', caption: 'Patient reception' },
+  { src: 'hospital-opening-ceremony.jpg', alt: 'Hospital staff and guests at an outdoor hospital ceremony', caption: 'A hospital celebration' },
+  { src: 'pharmacy-interior.jpg', alt: 'Wide view of the hospital pharmacy and service counter', caption: 'Pharmacy services' },
+  { src: 'operating-theatre.jpg', alt: 'Operating theatre prepared with surgical equipment', caption: 'Operating theatre' },
+];
+
+const hospitalStatistics = [
+  { value: 65, label: 'Years of service since 1954 E.C.' },
+  { value: 12, label: 'Medical departments' },
+  { value: 461, label: 'Healthcare professionals' },
+  { value: 183759, label: 'OPD attendances in the latest year' },
+  { value: 39253, label: 'Emergency visits in the same year' },
+  { value: '24/7', label: 'Emergency availability' },
+];
+
 function CountUp({ value }) {
   const [n, setN] = useState(0);
   const ref = useRef(null);
@@ -80,11 +103,66 @@ export default function Home() {
   const [services, setServices] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [news, setNews] = useState([]);
+  const [statsVisible, setStatsVisible] = useState(false);
+  const [activePhoto, setActivePhoto] = useState(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [slideshowPaused, setSlideshowPaused] = useState(false);
+  const statsRef = useRef(null);
+  const galleryHovering = useRef(false);
+  const galleryFocus = useRef(false);
+  const galleryPointerStart = useRef(null);
+  const galleryPauseUntil = useRef(0);
   useEffect(() => {
     get('/services').then(d => setServices((d.services || []).slice(0, 6))).catch(() => {});
     get('/doctors').then(d => setDoctors((d.doctors || []).slice(0, 3))).catch(() => {});
     get('/news?per_page=3').then(d => setNews(d.news || [])).catch(() => {});
   }, []);
+  useEffect(() => {
+    const section = statsRef.current;
+    if (!section) return undefined;
+    if (!('IntersectionObserver' in window)) {
+      setStatsVisible(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      setStatsVisible(true);
+      observer.disconnect();
+    }, { threshold: 0.15 });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    const preference = matchMedia('(prefers-reduced-motion: reduce)');
+    setReducedMotion(preference.matches);
+    const handleChange = event => setReducedMotion(event.matches);
+    preference.addEventListener?.('change', handleChange);
+    return () => preference.removeEventListener?.('change', handleChange);
+  }, []);
+  useEffect(() => {
+    if (reducedMotion || slideshowPaused) return undefined;
+    const timer = setInterval(() => {
+      if (galleryHovering.current || galleryFocus.current || document.hidden || Date.now() < galleryPauseUntil.current) return;
+      setActivePhoto(current => (current + 1) % hospitalPhotos.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [reducedMotion, slideshowPaused]);
+  const goToPhoto = index => {
+    setActivePhoto((index + hospitalPhotos.length) % hospitalPhotos.length);
+    galleryPauseUntil.current = Date.now() + 5000;
+  };
+  const handleGalleryKeyDown = event => {
+    if (event.key === 'ArrowRight') { event.preventDefault(); goToPhoto(activePhoto + 1); }
+    if (event.key === 'ArrowLeft') { event.preventDefault(); goToPhoto(activePhoto - 1); }
+    if (event.key === 'Home') { event.preventDefault(); goToPhoto(0); }
+    if (event.key === 'End') { event.preventDefault(); goToPhoto(hospitalPhotos.length - 1); }
+  };
+  const handleGalleryPointerUp = event => {
+    if (galleryPointerStart.current === null) return;
+    const distance = event.clientX - galleryPointerStart.current;
+    galleryPointerStart.current = null;
+    if (Math.abs(distance) > 55) goToPhoto(activePhoto + (distance < 0 ? 1 : -1));
+  };
   const phone = (settings.phone_emergency || '').replace(/\s/g, '');
 
   return (
@@ -92,7 +170,8 @@ export default function Home() {
       <section className="hero">
         <div className="wrap">
           <div className="kicker">Public general hospital · Hawassa · Since 1954 E.C.</div>
-          <h1>ADARE GENERAL HOSPITAL<br /><em>{tr('tagline')}</em></h1>
+          <h1>Welcome to<br />Adare General Hospital<br /><em>{tr('tagline')}</em></h1>
+          <p className="hero-welcome-am" lang="am">እንኳን ወደ አዳሬ አጠቃላይ ሆስፒታል በደህና መጡ</p>
           <p className="sub">{tr('heroSub')}</p>
           <div className="cta-row">
             <Link to="/appointments" className="btn btn-primary">{tr('bookAppointment')}</Link>
@@ -115,15 +194,21 @@ export default function Home() {
 
       <FeaturedCampaign />
 
-      <section className="block stats-band" style={{ marginTop: 46 }} aria-label="Hospital statistics">
+      <section className="block stats-band" style={{ marginTop: 46 }} aria-label="Hospital statistics" ref={statsRef}>
         <div className="wrap">
-          <div className="stats-grid">
-            <div className="stat-cell"><div className="n"><CountUp value={settings.stat_years_of_service} /></div><div className="l">Years of service since 1954 E.C.</div></div>
-            <div className="stat-cell"><div className="n"><CountUp value={settings.stat_departments} /></div><div className="l">Medical departments</div></div>
-            <div className="stat-cell"><div className="n"><CountUp value={settings.stat_health_professionals} /></div><div className="l">Healthcare professionals</div></div>
-            <div className="stat-cell"><div className="n"><CountUp value={settings.stat_opd_attendances} /></div><div className="l">OPD attendances in the latest year</div></div>
-            <div className="stat-cell"><div className="n"><CountUp value={settings.stat_emergency_visits} /></div><div className="l">Emergency visits in the same year</div></div>
-            <div className="stat-cell"><div className="n">24/7</div><div className="l">Emergency availability</div></div>
+          <div className="stats-heading">
+            <span className="stats-kicker">Our impact</span>
+            <h2>Care that makes a difference</h2>
+            <p>Serving Hawassa and the Sidama Region since 1954 E.C.</p>
+          </div>
+          <div className={`stats-grid${statsVisible ? ' is-visible' : ''}`}>
+            {hospitalStatistics.map(({ value, label }, index) => (
+              <article className="stat-cell" key={label} style={{ '--stat-index': index }}>
+                <span className="stat-mark" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                <div className="n">{typeof value === 'number' ? <CountUp value={value} /> : value}</div>
+                <div className="l">{label}</div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -187,6 +272,85 @@ export default function Home() {
             </blockquote>
             <p style={{ fontWeight: 700, color: 'var(--navy)' }}>Yirdachew Anato</p>
             <p className="muted" style={{ fontSize: 13 }}>Hospital Manager / CEO · Adare General Hospital</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="block alt hospital-gallery" aria-labelledby="hospital-gallery-title">
+        <div className="wrap">
+          <div className="sec-head">
+            <div><span className="label">Inside Adare</span><h2 id="hospital-gallery-title">Our hospital</h2></div>
+          </div>
+          <div
+            className="hospital-showcase"
+            role="region"
+            aria-roledescription="carousel"
+            aria-label={`Hospital photo gallery, slide ${activePhoto + 1} of ${hospitalPhotos.length}: ${hospitalPhotos[activePhoto].caption}`}
+            tabIndex={0}
+            onKeyDown={handleGalleryKeyDown}
+            onMouseEnter={() => { galleryHovering.current = true; }}
+            onMouseLeave={() => { galleryHovering.current = false; galleryPointerStart.current = null; }}
+            onFocusCapture={() => { galleryFocus.current = true; }}
+            onBlurCapture={event => {
+              if (!event.currentTarget.contains(event.relatedTarget)) galleryFocus.current = false;
+            }}
+          >
+            <div
+              className="hospital-showcase-stage"
+              onPointerDown={event => {
+                if (event.target.closest('button')) return;
+                galleryPointerStart.current = event.clientX;
+              }}
+              onPointerUp={handleGalleryPointerUp}
+              onPointerCancel={() => { galleryPointerStart.current = null; }}
+            >
+              <figure className="hospital-showcase-slide" key={hospitalPhotos[activePhoto].src} aria-live="polite">
+                <img
+                  src={`/hospital-images/${hospitalPhotos[activePhoto].src}`}
+                  alt={hospitalPhotos[activePhoto].alt}
+                  loading="eager"
+                  decoding="async"
+                  draggable="false"
+                />
+                <div className="hospital-showcase-shade" />
+                <figcaption>
+                  <span className="hospital-showcase-count">{String(activePhoto + 1).padStart(2, '0')} <span>/ {String(hospitalPhotos.length).padStart(2, '0')}</span></span>
+                  <strong>{hospitalPhotos[activePhoto].caption}</strong>
+                </figcaption>
+              </figure>
+              <button className="hospital-gallery-arrow previous" type="button" aria-label="Previous hospital photo" onClick={() => goToPhoto(activePhoto - 1)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+              </button>
+              <button className="hospital-gallery-arrow next" type="button" aria-label="Next hospital photo" onClick={() => goToPhoto(activePhoto + 1)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+              </button>
+            </div>
+            <div className="hospital-showcase-controls">
+              <div className="hospital-showcase-dots" role="group" aria-label="Choose a hospital photo">
+                {hospitalPhotos.map((photo, index) => (
+                  <button
+                    className={`hospital-showcase-dot${index === activePhoto ? ' is-active' : ''}`}
+                    type="button"
+                    key={photo.src}
+                    aria-label={`Show photo ${index + 1}: ${photo.caption}`}
+                    aria-current={index === activePhoto ? 'true' : undefined}
+                    onClick={() => goToPhoto(index)}
+                  />
+                ))}
+              </div>
+              {!reducedMotion && (
+                <button
+                  className="hospital-showcase-toggle"
+                  type="button"
+                  aria-label={slideshowPaused ? 'Play slideshow' : 'Pause slideshow'}
+                  aria-pressed={slideshowPaused}
+                  onClick={() => setSlideshowPaused(paused => !paused)}
+                >
+                  <span aria-hidden="true">{slideshowPaused ? '▶' : 'Ⅱ'}</span>
+                  {slideshowPaused ? 'Play' : 'Pause'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>

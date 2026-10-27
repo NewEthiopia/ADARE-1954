@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { post } from '../lib/api.js';
 
 const welcome = {
   from: 'bot',
-  text: 'Hello. I am Adare AI, the hospital information assistant. I can help you find appointments, doctors, services, and hospital contacts. I cannot diagnose or recommend treatment. Please do not share private health information in this chat.',
+  text: 'Hello! I can help you explore hospital services and share general health education. I cannot diagnose you or replace a clinician. If you may be having an emergency, call 046 221 1661 or go to the Emergency & Trauma Unit.',
 };
+
+const suggestions = [
+  'How can I prepare for an appointment?',
+  'What services does the hospital offer?',
+  'When should I seek urgent care?',
+];
 
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
@@ -13,6 +19,17 @@ export default function AssistantWidget() {
   const [messages, setMessages] = useState([welcome]);
   const [provider, setProvider] = useState('');
   const [notice, setNotice] = useState('');
+  const inputRef = useRef(null);
+  const messagesRef = useRef(null);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, busy, open]);
+
   const send = async (event) => {
     event.preventDefault();
     const text = message.trim();
@@ -46,13 +63,34 @@ export default function AssistantWidget() {
     }
   };
   return <>
-    <button className="assistant-launcher" aria-label="Open Adare AI assistant" onClick={() => setOpen(value => !value)}>✦ <span>Adare AI</span></button>
-    {open && <section className="assistant-panel" aria-label="Adare AI assistant">
-      <header><div><strong>Adare AI Assistant</strong><span>{provider === 'gemini' ? 'Powered by Gemini · Hospital information' : 'Hospital information assistant'}</span></div><button aria-label="Close assistant" onClick={() => setOpen(false)}>×</button></header>
-      <div className="assistant-messages" aria-live="polite">{messages.map((item, index) => <div className={`assistant-message ${item.from}`} key={index}><p>{item.text}</p>{item.links?.map(link => <a href={link.href} key={link.href}>{link.label} →</a>)}</div>)}{busy && <div className="assistant-message bot" role="status"><p>Adare AI is preparing a reply…</p></div>}</div>
+    <button className="assistant-launcher" aria-label={open ? 'Close Adare assistant' : 'Open Adare assistant'} aria-expanded={open} aria-controls="assistant-panel" onClick={() => setOpen(value => !value)}>
+      <span className="assistant-launcher-icon" aria-hidden="true">✦</span><span>Ask Adare AI</span>
+    </button>
+    {open && <section className="assistant-panel" id="assistant-panel" aria-label="Adare AI assistant">
+      <header className="assistant-header">
+        <div className="assistant-avatar" aria-hidden="true">✦</div>
+        <div className="assistant-heading"><strong>Adare AI</strong><span>Hospital & general health information</span></div>
+        <span className="assistant-online" aria-label="Available"><i /></span>
+        <button aria-label="Close assistant" onClick={() => setOpen(false)}>×</button>
+      </header>
+      <div className="assistant-safety"><span aria-hidden="true">ⓘ</span> Not a clinician or emergency service. Never share personal health details.</div>
+      <div className="assistant-messages" ref={messagesRef} aria-live="polite" aria-relevant="additions text">
+        {messages.map((item, index) => <div className={`assistant-message ${item.from}`} key={index}>
+          {item.from === 'bot' && <span className="assistant-message-avatar" aria-hidden="true">✦</span>}
+          <div className="assistant-message-content"><p>{item.text}</p>{item.links?.map(link => <a href={link.href} key={link.href}>{link.label} <span aria-hidden="true">→</span></a>)}</div>
+        </div>)}
+        {messages.length === 1 && <div className="assistant-suggestions" aria-label="Suggested questions">
+          <span>Try asking</span>
+          {suggestions.map(suggestion => <button key={suggestion} type="button" onClick={() => { setMessage(suggestion); inputRef.current?.focus(); }}>{suggestion}</button>)}
+        </div>}
+        {busy && <div className="assistant-message bot" role="status"><span className="assistant-message-avatar" aria-hidden="true">✦</span><div className="assistant-message-content assistant-typing"><i /><i /><i /><span className="sr-only">Adare AI is preparing a reply</span></div></div>}
+      </div>
       {notice && <p className="assistant-notice" role="status">{notice}</p>}
-      <form onSubmit={send}><input aria-label="Ask Adare AI" placeholder="Ask about the hospital…" value={message} onChange={event => setMessage(event.target.value)} onKeyDown={handleKeyDown} maxLength={1200} /><button disabled={busy || !message.trim()}>{busy ? '…' : 'Send'}</button></form>
-      <p className="assistant-disclaimer">Messages may be processed by Google Gemini. For general information only—not diagnosis or treatment advice. Do not share personal or medical information.</p>
+      <form className="assistant-compose" onSubmit={send}>
+        <input ref={inputRef} aria-label="Ask Adare AI" placeholder="Ask a question…" value={message} onChange={event => setMessage(event.target.value)} onKeyDown={handleKeyDown} maxLength={1200} />
+        <button aria-label="Send message" disabled={busy || !message.trim()}>{busy ? '…' : <span aria-hidden="true">↑</span>}</button>
+      </form>
+      <p className="assistant-disclaimer">{provider === 'gemini' ? 'AI can make mistakes. General information only—not diagnosis, treatment, or a substitute for a healthcare professional. Messages may be processed by Google Gemini.' : 'AI health education is unavailable until configured. For personal medical concerns, contact a qualified healthcare professional.'}</p>
     </section>}
   </>;
 }

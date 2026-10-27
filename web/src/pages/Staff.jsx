@@ -149,17 +149,45 @@ function Bars({ rows, labelKey, valueKey, blue }) {
   );
 }
 
-function DashboardView({ go }) {
+function DashboardView({ go, toast }) {
   const [d, setD] = useState(null);
   const [systems, setSystems] = useState([]);
+  const [fullankeUrl, setFullankeUrl] = useState('http://192.168.1.250/iemrs/');
+  const [fullankeBusy, setFullankeBusy] = useState(false);
+  const [fullankeError, setFullankeError] = useState('');
   useEffect(() => {
     get('/admin/dashboard').then(setD).catch(() => {});
-    get('/admin/internal-systems').then(x => setSystems(x.systems || [])).catch(() => {});
+    get('/admin/internal-systems').then(x => {
+      const loadedSystems = x.systems || [];
+      setSystems(loadedSystems);
+      setFullankeUrl(loadedSystems.find(system => system.name === 'Fullanke')?.url || 'http://192.168.1.250/iemrs/');
+    }).catch(err => setFullankeError(err.message));
   }, []);
   if (!d) return <div className="skeleton" style={{ height: 300 }} />;
   const k = d.kpi;
   const role = auth.user?.role;
   const isAdmin = ['super_admin', 'hospital_admin'].includes(role);
+  const saveFullankeUrl = async event => {
+    event.preventDefault();
+    if (fullankeBusy) return;
+    setFullankeBusy(true);
+    setFullankeError('');
+    try {
+      const url = fullankeUrl.trim();
+      await patch('/admin/settings', { key: 'internal_fullanke_url', value: url });
+      setSystems(current => {
+        const found = current.some(system => system.name === 'Fullanke');
+        if (found) return current.map(system => system.name === 'Fullanke' ? { ...system, url } : system);
+        return [...current, { name: 'Fullanke', url, note: 'Integrated electronic medical records system' }];
+      });
+      setFullankeUrl(url);
+      toast('Fullanke address updated');
+    } catch (err) {
+      setFullankeError(err.message);
+    } finally {
+      setFullankeBusy(false);
+    }
+  };
   return (
     <>
       {/* quick actions */}
@@ -175,9 +203,10 @@ function DashboardView({ go }) {
       </div>
 
       {/* internal hospital systems — LAN links (open only inside the hospital network) */}
-      {systems.length > 0 && (
+      {(systems.length > 0 || isAdmin) && (
         <div className="panel" style={{ borderTop: '4px solid var(--ochre)' }}>
           <h3>Internal Systems <span className="muted" style={{ fontWeight: 400, fontSize: 12.5 }}>hospital network (LAN) only</span></h3>
+          {fullankeError && <div className="alert error" role="alert" style={{ marginBottom: 14 }}>{fullankeError}</div>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {systems.map(s => (
               <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
@@ -186,9 +215,29 @@ function DashboardView({ go }) {
               </a>
             ))}
           </div>
+          {isAdmin && (
+            <form className="internal-system-editor" onSubmit={saveFullankeUrl}>
+              <div className="field">
+                <label htmlFor="dashboard-fullanke-url">Fullanke address</label>
+                <input
+                  id="dashboard-fullanke-url"
+                  type="url"
+                  required
+                  maxLength={4000}
+                  value={fullankeUrl}
+                  onChange={event => setFullankeUrl(event.target.value)}
+                  disabled={fullankeBusy}
+                />
+                <small className="muted">Admins can update this staff-only link. Use a private hospital-network IPv4 address.</small>
+              </div>
+              <button className="btn btn-primary btn-sm" type="submit" disabled={fullankeBusy}>
+                {fullankeBusy ? 'Saving…' : 'Save Fullanke address'}
+              </button>
+            </form>
+          )}
           <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
             These systems run on the hospital's private network (192.168.x.x) and only open from computers
-            connected to the hospital LAN/Wi-Fi. Addresses are editable by administrators under Settings.
+            connected to the hospital LAN/Wi-Fi.
           </p>
         </div>
       )}
@@ -244,6 +293,12 @@ function AppointmentsView({ toast }) {
   const [rows, setRows] = useState(null);
   const [filters, setFilters] = useState({ status: '', date: '', q: '' });
   const [confirmBox, setConfirmBox] = useState(null); // {reference, action}
+  const [receipt, setReceipt] = useState(null);
+  useEffect(() => {
+    if (!receipt) return undefined;
+    document.body.classList.add('printing-appointment-receipt');
+    return () => document.body.classList.remove('printing-appointment-receipt');
+  }, [receipt]);
   const load = useCallback(() => {
     const p = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => v && p.set(k, v));
@@ -291,9 +346,9 @@ function AppointmentsView({ toast }) {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Reference</th><th>Patient</th><th>Department / Doctor</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Reference</th><th>Patient</th><th>Department / Doctor</th><th>Date</th><th>Status</th><th>Actions</th><th>Receipt</th></tr></thead>
           <tbody>
-            {rows === null && <tr><td colSpan={6}><div className="skeleton" style={{ height: 60 }} /></td></tr>}
+            {rows === null && <tr><td colSpan={7}><div className="skeleton" style={{ height: 60 }} /></td></tr>}
             {rows?.map(a => (
               <tr key={a.reference} style={a.is_emergency ? { background: 'rgba(200,37,44,.05)' } : undefined}>
                 <td className="mono">{a.reference}{a.is_emergency && <><br /><span className="tag red">URGENT</span></>}</td>
@@ -306,12 +361,59 @@ function AppointmentsView({ toast }) {
                     <button key={act} className={`btn btn-sm ${cls}`} onClick={() => run(a.reference, act)}>{label}</button>
                   ))}
                 </div></td>
+                <td><button className="btn btn-outline btn-sm no-print" onClick={() => setReceipt(a)}>View / print</button></td>
               </tr>
             ))}
-            {rows?.length === 0 && <tr><td colSpan={6} className="muted">No appointments match the filters.</td></tr>}
+            {rows?.length === 0 && <tr><td colSpan={7} className="muted">No appointments match the filters.</td></tr>}
           </tbody>
         </table>
       </div>
+      {receipt && (
+        <div className="appointment-receipt-backdrop no-print" onMouseDown={event => {
+          if (event.target === event.currentTarget) setReceipt(null);
+        }}>
+          <article className="appointment-receipt" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
+            <div className="appointment-receipt-actions no-print">
+              <button className="btn btn-outline btn-sm" onClick={() => setReceipt(null)}>Close</button>
+              <button className="btn btn-primary btn-sm" onClick={() => window.print()}>Print receipt</button>
+            </div>
+            <header className="appointment-receipt-header">
+              <img src="/logo-192.png" alt="" width="58" height="58" />
+              <div><strong>Adare General Hospital</strong><span>Hawassa · Sidama · Ethiopia</span></div>
+            </header>
+            <p className="appointment-receipt-kicker">PATIENT APPOINTMENT</p>
+            <h2 id="receipt-title">Appointment receipt</h2>
+            <p className="appointment-receipt-reference">{receipt.reference}</p>
+            <div className="appointment-receipt-status">
+              <span className={`status-pill st-${receipt.status}`}>{receipt.status}</span>
+              {receipt.is_emergency && <span className="tag red">Urgent</span>}
+            </div>
+            <dl className="appointment-receipt-details">
+              <div><dt>Patient</dt><dd>{receipt.patient_name}</dd></div>
+              <div><dt>Phone</dt><dd>{receipt.phone}</dd></div>
+              {receipt.email && <div><dt>Email</dt><dd>{receipt.email}</dd></div>}
+              <div><dt>Department</dt><dd>{receipt.department || 'General visit'}</dd></div>
+              {receipt.doctor && <div><dt>Doctor</dt><dd>{receipt.doctor}</dd></div>}
+              {receipt.service && <div><dt>Service</dt><dd>{receipt.service}</dd></div>}
+              <div><dt>Visit date</dt><dd>{receipt.scheduled_date || receipt.preferred_date ? String(receipt.scheduled_date || receipt.preferred_date).slice(0, 10) : 'To be scheduled'}</dd></div>
+              <div><dt>Preferred time</dt><dd>{receipt.scheduled_time || receipt.preferred_time || 'Any time'}</dd></div>
+              <div><dt>Request received</dt><dd>{new Date(receipt.created_at).toLocaleString()}</dd></div>
+            </dl>
+            <p className="appointment-receipt-note">
+              {receipt.status === 'PENDING'
+                ? 'This document confirms receipt of your request. Your appointment is pending and is not confirmed until the hospital contacts you.'
+                : receipt.status === 'REJECTED'
+                  ? 'This appointment request was declined. Please contact the hospital if you need assistance.'
+                  : receipt.status === 'CANCELLED'
+                    ? 'This appointment has been cancelled. Please contact the hospital if you need to book another visit.'
+                    : receipt.status === 'NO_SHOW'
+                      ? 'Hospital records indicate that this appointment was missed. Please contact the hospital to arrange another visit.'
+                      : 'Please bring this receipt when you visit the hospital.'}
+            </p>
+            <footer>Adare General Hospital · 046 221 1661 · Emergency services available 24/7</footer>
+          </article>
+        </div>
+      )}
     </>
   );
 }
@@ -792,35 +894,105 @@ function DoctorImagesView({ toast }) {
 /* -------------------- Reports -------------------- */
 function ReportsView({ toast }) {
   const [report, setReport] = useState(null);
-  const [range, setRange] = useState({ from: '', to: '' });
-  const load = useCallback(() => {
+  const [range, setRange] = useState(() => {
+    const to = new Date().toISOString().slice(0, 10);
+    return { from: new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10), to };
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    if (range.from && range.to && range.from > range.to) {
+      setError('Start date must be on or before the end date.');
+      return;
+    }
     const p = new URLSearchParams();
     if (range.from) p.set('from', range.from);
     if (range.to) p.set('to', range.to);
-    get(`/admin/reports/appointments?${p}`).then(setReport).catch(e => toast(e.message));
+    setBusy(true);
+    setError('');
+    try {
+      setReport(await get(`/admin/reports/appointments?${p}`));
+    } catch (e) {
+      setError(e.message);
+      toast(e.message);
+    } finally {
+      setBusy(false);
+    }
   }, [range, toast]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, []);
+  const downloadCsv = () => {
+    if (!report) return;
+    const rows = [
+      ['Adare General Hospital — Appointment Report'],
+      ['From', report.from, 'To', report.to],
+      [],
+      ['Appointments by day'],
+      ['Date', 'Appointments'],
+      ...report.by_day.map(row => [String(row.day).slice(0, 10), row.c]),
+      [],
+      ['Appointments by department'],
+      ['Department', 'Appointments'],
+      ...report.by_department.map(row => [row.department, row.c]),
+      [],
+      ['Appointments by status'],
+      ['Status', 'Appointments'],
+      ...report.by_status.map(row => [row.status, row.c]),
+      [],
+      ['Cancellations and no-shows', report.cancellations],
+    ];
+    const csv = rows.map(row => row.map(value => {
+      const text = String(value ?? '');
+      const safe = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${safe.replaceAll('"', '""')}"`;
+    }).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `adare-appointment-report-${report.from}-to-${report.to}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   return (
-    <div className="panel">
-      <h3>Appointment report <button className="btn btn-outline btn-sm" onClick={() => window.print()}>Print / PDF</button></h3>
-      <div className="filter-row">
-        <input type="date" value={range.from} onChange={e => setRange(r => ({ ...r, from: e.target.value }))} aria-label="From" />
-        <input type="date" value={range.to} onChange={e => setRange(r => ({ ...r, to: e.target.value }))} aria-label="To" />
+    <div className="panel report-panel">
+      <div className="report-toolbar no-print">
+        <div><h3>Appointment report</h3><p className="muted">Generate a report for the selected date range.</p></div>
+        <div className="report-actions">
+          <button className="btn btn-outline btn-sm" disabled={!report || busy} onClick={downloadCsv}>Download CSV</button>
+          <button className="btn btn-outline btn-sm" disabled={!report || busy} onClick={() => window.print()}>Print / Save PDF</button>
+        </div>
       </div>
+      <div className="filter-row report-filters no-print">
+        <label>From <input type="date" value={range.from} onChange={e => setRange(r => ({ ...r, from: e.target.value }))} /></label>
+        <label>To <input type="date" value={range.to} onChange={e => setRange(r => ({ ...r, to: e.target.value }))} /></label>
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={load}>{busy ? 'Generating…' : 'Generate report'}</button>
+      </div>
+      {error && <div className="alert error no-print" role="alert">{error}</div>}
       {report && (
-        <>
-          <p className="muted" style={{ marginBottom: 14 }}>Period {report.from} → {report.to} · cancellations/no-shows: <strong>{report.cancellations}</strong></p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))', gap: 16 }}>
-            <div><h4 style={{ marginBottom: 8 }}>By department</h4>
-              <div className="table-wrap"><table><tbody>
+        <section className="report-print-area" aria-label="Generated appointment report">
+          <header className="report-print-header"><h2>Adare General Hospital</h2><p>Appointment activity report · {report.from} to {report.to}</p></header>
+          <div className="report-summary">
+            <div><strong>{report.by_day.reduce((sum, row) => sum + Number(row.c), 0)}</strong><span>Total requests</span></div>
+            <div><strong>{report.cancellations}</strong><span>Cancellations / no-shows</span></div>
+          </div>
+          <div className="report-data-grid">
+            <div><h4>By department</h4>
+              <div className="table-wrap"><table><thead><tr><th>Department</th><th>Requests</th></tr></thead><tbody>
                 {report.by_department.map(r => <tr key={r.department}><td>{r.department}</td><td><strong>{r.c}</strong></td></tr>)}
+                {!report.by_department.length && <tr><td colSpan={2} className="muted">No appointments in this period.</td></tr>}
               </tbody></table></div></div>
-            <div><h4 style={{ marginBottom: 8 }}>By status</h4>
-              <div className="table-wrap"><table><tbody>
+            <div><h4>By status</h4>
+              <div className="table-wrap"><table><thead><tr><th>Status</th><th>Appointments</th></tr></thead><tbody>
                 {report.by_status.map(r => <tr key={r.status}><td><span className={`status-pill st-${r.status}`}>{r.status}</span></td><td><strong>{r.c}</strong></td></tr>)}
+                {!report.by_status.length && <tr><td colSpan={2} className="muted">No appointments in this period.</td></tr>}
               </tbody></table></div></div>
           </div>
-        </>
+          <div className="report-daily"><h4>Daily appointment requests</h4>
+            <div className="table-wrap"><table><thead><tr><th>Date</th><th>Requests</th></tr></thead><tbody>
+              {report.by_day.map(r => <tr key={String(r.day)}><td>{String(r.day).slice(0, 10)}</td><td><strong>{r.c}</strong></td></tr>)}
+              {!report.by_day.length && <tr><td colSpan={2} className="muted">No appointments in this period.</td></tr>}
+            </tbody></table></div>
+          </div>
+        </section>
       )}
     </div>
   );
@@ -924,7 +1096,7 @@ export default function Staff() {
   const signOut = async () => { try { await post('/auth/logout', {}); } catch {} auth.clear(); setSignedIn(false); };
 
   const views = {
-    dashboard: <DashboardView go={setView} />, appointments: <AppointmentsView toast={toast} />,
+    dashboard: <DashboardView go={setView} toast={toast} />, appointments: <AppointmentsView toast={toast} />,
     patients: <PatientsView toast={toast} />, payments: <PaymentsView toast={toast} />,
     news: <NewsView toast={toast} />, messages: <MessagesView toast={toast} />,
     leadership: <LeadershipView toast={toast} />,

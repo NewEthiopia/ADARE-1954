@@ -57,48 +57,68 @@ function AuthView({ onDone }) {
   };
   return (
     <div
-      className="portal-auth"
-      style={{ maxWidth: 460, margin: '0 auto' }}
+      className="portal-auth-layout"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="filter-row portal-auth-tabs" role="tablist" aria-label="Portal access">
-        <button type="button" role="tab" id="portal-login-tab" aria-controls="portal-auth-panel" aria-selected={mode === 'login'} tabIndex={mode === 'login' ? 0 : -1} className={`btn ${mode === 'login' ? 'btn-navy' : 'btn-outline'}`} style={{ flex: 1 }} onClick={() => switchMode('login')}>Sign in</button>
-        <button type="button" role="tab" id="portal-register-tab" aria-controls="portal-auth-panel" aria-selected={mode === 'register'} tabIndex={mode === 'register' ? 0 : -1} className={`btn ${mode === 'register' ? 'btn-navy' : 'btn-outline'}`} style={{ flex: 1 }} onClick={() => switchMode('register')}>Create account</button>
+      <aside className="portal-auth-welcome">
+        <span className="portal-auth-welcome-tag">ADARE · PATIENT SERVICES</span>
+        <div className="portal-auth-welcome-copy">
+          <span className="portal-auth-symbol" aria-hidden="true">✦</span>
+          <h3>Your care, all in one place.</h3>
+          <p>Book visits, follow appointment updates, and keep track of your care from the Adare patient portal.</p>
+        </div>
+        <div className="portal-auth-benefits">
+          <span><b aria-hidden="true">✓</b> Manage appointments</span>
+          <span><b aria-hidden="true">✓</b> Get important updates</span>
+          <span><b aria-hidden="true">✓</b> Connect with your care team</span>
+        </div>
+        <span className="portal-auth-welcome-foot">Here for you · 24 hours a day for emergencies</span>
+      </aside>
+      <div className="portal-auth-content">
+        <div className="filter-row portal-auth-tabs" role="tablist" aria-label="Portal access">
+          <button type="button" role="tab" id="portal-login-tab" aria-controls="portal-auth-panel" aria-selected={mode === 'login'} tabIndex={mode === 'login' ? 0 : -1} className={`btn ${mode === 'login' ? 'btn-navy' : 'btn-outline'}`} style={{ flex: 1 }} onClick={() => switchMode('login')}>Sign in</button>
+          <button type="button" role="tab" id="portal-register-tab" aria-controls="portal-auth-panel" aria-selected={mode === 'register'} tabIndex={mode === 'register' ? 0 : -1} className={`btn ${mode === 'register' ? 'btn-navy' : 'btn-outline'}`} style={{ flex: 1 }} onClick={() => switchMode('register')}>Create account</button>
+        </div>
+        <p className="portal-swipe-hint" aria-hidden="true">Swipe left to create an account · swipe right to sign in</p>
+        {state.error && <div className="alert error" role="alert">{state.error}</div>}
+        <form key={mode} onSubmit={submit} className="panel portal-auth-panel" id="portal-auth-panel" role="tabpanel" aria-labelledby={mode === 'login' ? 'portal-login-tab' : 'portal-register-tab'}>
+          <div className="portal-auth-form-heading">
+            <span>{mode === 'login' ? 'WELCOME BACK' : 'JOIN ADARE'}</span>
+            <h3>{mode === 'login' ? 'Sign in to your account' : 'Create your patient account'}</h3>
+            <p>{mode === 'login' ? 'Enter your details to continue to your patient portal.' : 'A few details are all you need to get started.'}</p>
+          </div>
+          {mode === 'login' ? (
+            <>
+              <div className="field"><label htmlFor="p-user">Phone number or Email address</label>
+                <input id="p-user" required value={form.username} onChange={set('username')} autoComplete="username" placeholder="09… / +2519… / you@email.com" /></div>
+              <div className="field"><label htmlFor="p-pass">Password</label>
+                <input id="p-pass" required type="password" value={form.password} onChange={set('password')} autoComplete="current-password" /></div>
+            </>
+          ) : (
+            <>
+              <div className="field"><label htmlFor="r-name">Full name *</label>
+                <input id="r-name" required maxLength={150} value={form.full_name} onChange={set('full_name')} autoComplete="name" /></div>
+              <div className="form-grid">
+                <div className="field"><label htmlFor="r-phone">Phone *</label>
+                  <input id="r-phone" required type="tel" value={form.phone} onChange={set('phone')} autoComplete="tel" /></div>
+                <div className="field"><label htmlFor="r-dob">Date of birth</label>
+                  <input id="r-dob" type="date" value={form.date_of_birth} onChange={set('date_of_birth')} /></div>
+              </div>
+              <div className="field"><label htmlFor="r-email">Email</label>
+                <input id="r-email" type="email" value={form.email} onChange={set('email')} /></div>
+              <div className="field"><label htmlFor="r-pass">Password * (min 8 characters)</label>
+                <input id="r-pass" required minLength={8} type="password" value={form.password} onChange={set('password')} autoComplete="new-password" /></div>
+            </>
+          )}
+          <button className="btn btn-primary portal-auth-submit" disabled={state.busy}>
+            {state.busy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : 'Create patient account'}
+            {!state.busy && <span aria-hidden="true">→</span>}
+          </button>
+          <p className="portal-auth-security">Your account is stored securely on hospital servers.</p>
+        </form>
+        <p className="portal-staff-link muted">Hospital staff? <a href="/staff">Sign in to the staff portal</a></p>
       </div>
-      <p className="portal-swipe-hint" aria-hidden="true">Swipe left to create an account · swipe right to sign in</p>
-      {state.error && <div className="alert error" role="alert">{state.error}</div>}
-      <form key={mode} onSubmit={submit} className="panel portal-auth-panel" id="portal-auth-panel" role="tabpanel" aria-labelledby={mode === 'login' ? 'portal-login-tab' : 'portal-register-tab'}>
-        {mode === 'login' ? (
-          <>
-            <div className="field"><label htmlFor="p-user">Phone number or Email address</label>
-              <input id="p-user" required value={form.username} onChange={set('username')} autoComplete="username" placeholder="09… / +2519… / you@email.com" /></div>
-            <div className="field"><label htmlFor="p-pass">Password</label>
-              <input id="p-pass" required type="password" value={form.password} onChange={set('password')} autoComplete="current-password" /></div>
-          </>
-        ) : (
-          <>
-            <div className="field"><label htmlFor="r-name">Full name *</label>
-              <input id="r-name" required maxLength={150} value={form.full_name} onChange={set('full_name')} autoComplete="name" /></div>
-            <div className="form-grid">
-              <div className="field"><label htmlFor="r-phone">Phone *</label>
-                <input id="r-phone" required type="tel" value={form.phone} onChange={set('phone')} autoComplete="tel" /></div>
-              <div className="field"><label htmlFor="r-dob">Date of birth</label>
-                <input id="r-dob" type="date" value={form.date_of_birth} onChange={set('date_of_birth')} /></div>
-            </div>
-            <div className="field"><label htmlFor="r-email">Email</label>
-              <input id="r-email" type="email" value={form.email} onChange={set('email')} /></div>
-            <div className="field"><label htmlFor="r-pass">Password * (min 8 characters)</label>
-              <input id="r-pass" required minLength={8} type="password" value={form.password} onChange={set('password')} autoComplete="new-password" /></div>
-          </>
-        )}
-        <button className="btn btn-primary" style={{ width: '100%' }} disabled={state.busy}>
-          {state.busy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : 'Create patient account'}
-        </button>
-      </form>
-      <p className="muted" style={{ fontSize: 13, textAlign: 'center' }}>
-        Your account is stored securely on hospital servers. Staff sign in <a href="/staff" style={{ color: 'var(--red)', fontWeight: 700 }}>here</a>.
-      </p>
     </div>
   );
 }
@@ -239,7 +259,7 @@ export default function Portal() {
     setSignedIn(false);
   };
   return (
-    <div className="wrap" style={{ padding: '34px 20px 60px' }}>
+    <div className="wrap portal-page" style={{ padding: '34px 20px 60px' }}>
       <nav className="crumbs" aria-label="Breadcrumb"><Link to="/">Home</Link> / Patient Portal</nav>
       <div className="sec-head" style={{ marginTop: 10 }}>
         <div><span className="label">Adare digital hospital</span><h2>Patient Portal</h2></div>

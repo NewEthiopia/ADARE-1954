@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "migrate": "node scripts/migrate.js",
+    "import:hr-credentials": "node scripts/import-hr-credentials.js",
     "seed": "node scripts/seed-dev.js",
     "start": "node src/index.js",
     "test": "node --test"

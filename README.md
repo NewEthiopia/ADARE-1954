@@ -166,6 +166,10 @@ or place it in public assets.
 Adare AI serves guided hospital information without an external provider. To
 enable Gemini-backed answers, set `GEMINI_API_KEY` in the backend's secure
 environment configuration (never in a `VITE_` variable or source file). The
-chat only uses public hospital information and explicitly declines medical
-diagnosis or treatment advice; visitors are warned not to share private health
+Gemini assistant can provide general health education, but must not diagnose,
+interpret an individual's symptoms, or recommend treatment or medication.
+Possible emergencies receive deterministic guidance to seek care at the
+Emergency & Trauma Unit or call 046 221 1661. Without Gemini configured, the
+assistant continues to provide guided hospital information, but does not
+generate health education. Visitors are warned not to share private health
 information.

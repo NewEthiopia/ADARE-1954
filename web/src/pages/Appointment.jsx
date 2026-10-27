@@ -82,10 +82,28 @@ export default function Appointment() {
   };
 
   return (
-    <div className="wrap" style={{ padding: '34px 20px 60px', maxWidth: 900 }}>
+    <div className="wrap appointment-page" style={{ padding: '34px 20px 60px', maxWidth: 1080 }}>
       <nav className="crumbs" aria-label="Breadcrumb"><Link to="/">Home</Link> / Appointments</nav>
-      <div className="sec-head" style={{ marginTop: 10 }}>
-        <div><span className="label">Plan your visit</span><h2>Book an Appointment</h2></div>
+      <header className="appointment-intro">
+        <div className="appointment-intro-copy">
+          <span className="appointment-eyebrow">YOUR VISIT STARTS HERE</span>
+          <h1>Book an appointment</h1>
+          <p>Request a visit with the Adare care team. Choose a department, tell us when works for you, and we’ll be in touch.</p>
+        </div>
+        <div className="appointment-promise">
+          <span className="appointment-promise-icon" aria-hidden="true">✦</span>
+          <div><strong>Personal care, made simple</strong><span>Our reception team reviews every request and helps you plan your visit.</span></div>
+        </div>
+        <div className="appointment-steps" aria-label="How appointment requests work">
+          <span><b>01</b> Send your request</span><i aria-hidden="true" />
+          <span><b>02</b> Reception reviews</span><i aria-hidden="true" />
+          <span><b>03</b> Track your status</span>
+        </div>
+      </header>
+
+      <div className="appointment-section-heading">
+        <span className="appointment-section-icon" aria-hidden="true">01</span>
+        <div><span>LET’S GET YOU STARTED</span><h2>Appointment request</h2></div>
       </div>
 
       {result && (
@@ -104,8 +122,9 @@ export default function Appointment() {
       )}
       {error && <div className="alert error" role="alert">{error}</div>}
 
-      <form onSubmit={submit} className="panel" aria-label="Appointment form">
+      <form onSubmit={submit} className="panel appointment-form" aria-label="Appointment form">
         <div className="form-grid">
+          <div className="appointment-form-section full"><span className="appointment-section-number">01</span><h3>Your details</h3><span>So our team knows how to reach you</span></div>
           <div className="field"><label htmlFor="ap-name">Full name *</label>
             <input id="ap-name" required maxLength={150} value={form.patient_name} onChange={set('patient_name')} autoComplete="name" /></div>
           <div className="field"><label htmlFor="ap-phone">Phone number *</label>
@@ -124,6 +143,7 @@ export default function Appointment() {
               <option value="none">None / self-pay</option><option value="cbhi">CBHI</option>
               <option value="private">Private insurance</option><option value="other">Other</option>
             </select></div>
+          <div className="appointment-form-section full"><span className="appointment-section-number">02</span><h3>Choose your care</h3><span>Select a service and preferred visit time</span></div>
           <div className="field"><label htmlFor="ap-dept">Department</label>
             <select id="ap-dept" value={form.department_id} onChange={set('department_id')}>
               <option value="">Select department…</option>
@@ -167,6 +187,7 @@ export default function Appointment() {
             <select id="ap-time" value={form.preferred_time} onChange={set('preferred_time')}>
               <option value="">Any time</option><option>Morning</option><option>Afternoon</option>
             </select></div>
+          <div className="appointment-form-section full"><span className="appointment-section-number">03</span><h3>Tell us a little more</h3><span>Share anything that will help us prepare for your visit</span></div>
           <div className="field full"><label htmlFor="ap-reason">Reason for visit</label>
             <textarea id="ap-reason" rows={3} maxLength={2000} value={form.reason} onChange={set('reason')} /></div>
           <div className="field full" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -176,11 +197,14 @@ export default function Appointment() {
             </label>
           </div>
         </div>
-        <button className="btn btn-primary" disabled={busy}>{busy ? 'Submitting…' : 'Submit appointment request'}</button>
+        <div className="appointment-submit-row">
+          <p>Your information is handled securely and shared with our care team.</p>
+          <button className="btn btn-primary appointment-submit" disabled={busy}>{busy ? 'Submitting…' : 'Submit appointment request'} {!busy && <span aria-hidden="true">→</span>}</button>
+        </div>
       </form>
 
-      <div className="panel" style={{ marginTop: 26 }}>
-        <h3>Already booked? Check your status</h3>
+      <div className="panel appointment-status-panel" style={{ marginTop: 26 }}>
+        <div className="appointment-status-heading"><span className="appointment-status-icon" aria-hidden="true">✓</span><div><h3>Already booked?</h3><p>Enter your appointment reference and phone number to check the latest update.</p></div></div>
         <form onSubmit={checkStatus} className="filter-row" aria-label="Status checker">
           <input aria-label="Reference" placeholder="AGH-APT-2026-000001" required value={status.reference}
             onChange={e => setStatus(s => ({ ...s, reference: e.target.value }))} style={{ flex: '1 1 220px' }} />

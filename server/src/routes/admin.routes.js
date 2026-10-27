@@ -35,7 +35,7 @@ adminRouter.get('/dashboard', requireRole('receptionist', 'doctor', 'nurse', 'fi
     }, 'Dashboard');
   }));
 
-// ---------- internal systems (staff-only LAN links: Dagu, EMR, Odoo) ----------
+// ---------- internal systems (staff-only LAN links) ----------
 adminRouter.get('/internal-systems', wrap(async (_req, res) => {
   const rows = (await q(`SELECT key, value FROM hospital_settings WHERE key LIKE 'internal\\_%'`)).rows;
   const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
@@ -43,6 +43,7 @@ adminRouter.get('/internal-systems', wrap(async (_req, res) => {
     { name: 'Dagu 2.0', url: map.internal_dagu_url, note: 'Supply chain / logistics' },
     { name: 'EMR System', url: map.internal_emr_url, note: 'Electronic medical records' },
     { name: 'Odoo ERP', url: map.internal_odoo_url, note: 'Enterprise resource planning' },
+    { name: 'Fullanke', url: map.internal_fullanke_url, note: 'Integrated electronic medical records system' },
   ].filter(s => s.url);
   ok(res, { systems }, 'Internal systems');
 }));
@@ -237,8 +238,22 @@ adminRouter.get('/settings', requireRole('content_manager'), wrap(async (_req, r
 }));
 adminRouter.patch('/settings', requireRole(), validate(z.object({
   key: z.string().min(2).max(80), value: z.string().max(4000),
-}).refine(({ key, value }) => key !== 'site_heartbeat' || ['true', 'false'].includes(value), {
-  message: 'Heartbeat setting must be true or false.',
+}).refine(({ key, value }) => {
+  if (key === 'site_heartbeat') return ['true', 'false'].includes(value);
+  if (key !== 'internal_fullanke_url') return true;
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return false;
+    const parts = url.hostname.split('.').map(Number);
+    if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+    return parts[0] === 10
+      || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
+      || (parts[0] === 192 && parts[1] === 168);
+  } catch {
+    return false;
+  }
+}, {
+  message: 'Fullanke URL must use HTTP or HTTPS and point to a private IPv4 address.',
 })), wrap(async (req, res) => {
   if (req.body.key === 'site_heartbeat') {
     await q(
