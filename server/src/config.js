@@ -46,4 +46,16 @@ export const config = {
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   paymentProvider: process.env.PAYMENT_PROVIDER || '',
   paymentApiKey: process.env.PAYMENT_API_KEY || '',
+  dhis2BaseUrl: process.env.DHIS2_BASE_URL || 'https://tbh.ephi.gov.et/api',
+  dhis2DataSetUid: process.env.DHIS2_DATASET_UID || '',
+  dhis2OrgUnitUid: process.env.DHIS2_ORG_UNIT_UID || '',
+  dhis2DataElements: {
+    vaccinationActivity: process.env.DHIS2_DE_VACCINATION_ACTIVITY || '',
+    dosesAdministered: process.env.DHIS2_DE_DOSES_ADMINISTERED || '',
+    dosesWasted: process.env.DHIS2_DE_DOSES_WASTED || '',
+    adverseEvents: process.env.DHIS2_DE_ADVERSE_EVENTS || '',
+  },
+  dhis2Username: process.env.DHIS2_USERNAME || '',
+  dhis2Password: process.env.DHIS2_PASSWORD || '',
+  dhis2AccessToken: process.env.DHIS2_ACCESS_TOKEN || '',
 };

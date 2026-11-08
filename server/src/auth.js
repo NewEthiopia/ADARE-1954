@@ -73,6 +73,14 @@ export function requireRole(...roles) {
   };
 }
 
+export async function hasStaffPermission(user, permission) {
+  if (!user || user.role === 'patient') return false;
+  if (['super_admin', 'hospital_admin'].includes(user.role)) return true;
+  return Boolean(await one(
+    'SELECT 1 FROM staff_permissions WHERE user_id=$1 AND permission_code=$2',
+    [user.id, permission]));
+}
+
 /** Patient-only guard (portal endpoints). */
 export function requirePatient(req, _res, next) {
   if (!req.user || req.user.role !== 'patient') {
