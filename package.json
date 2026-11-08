@@ -1,0 +1,14 @@
+{
+  "name": "adare-platform",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=adare-web",
+    "start": "npm run start --workspace=adare-server",
+    "test": "npm run test --workspace=adare-server"
+  }
+}
