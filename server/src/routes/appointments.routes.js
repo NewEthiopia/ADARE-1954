@@ -1,8 +1,6 @@
 // Real database-backed appointment lifecycle (spec §9–§10).
 import { Router } from 'express';
 import multer from 'multer';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
@@ -11,6 +9,7 @@ import { ok, fail, wrap, validate } from '../http.js';
 import { requireAuth, audit, hasStaffPermission } from '../auth.js';
 import { notifyRole, notifyPatient, broadcast, sendSms, sendEmail } from '../notify.js';
 import { config } from '../config.js';
+import { readPassportDocument, savePassportDocument } from '../passport-storage.js';
 
 export const appointmentsRouter = Router();
 
@@ -119,47 +118,45 @@ appointmentsRouter.post('/', createLimiter, receivePassport, parseAppointmentMul
   if (dup) throw fail(409, 'DUPLICATE', `A pending appointment (${dup.reference}) already exists for this phone, department and date.`);
 
   let passportDocumentPath = null;
+  let passportExtension = null;
   if (req.file) {
-    const extension = passportImageExtension(req.file.buffer);
-    if (!extension) throw fail(415, 'UPLOAD_TYPE', 'The selected file is not a valid JPEG, PNG, or WebP image.');
-    const directory = path.join(config.privateDir, 'passports');
-    await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-    passportDocumentPath = `${crypto.randomBytes(16).toString('hex')}.${extension}`;
-    await fs.writeFile(path.join(directory, passportDocumentPath), req.file.buffer, { flag: 'wx', mode: 0o600 });
+    passportExtension = passportImageExtension(req.file.buffer);
+    if (!passportExtension) throw fail(415, 'UPLOAD_TYPE', 'The selected file is not a valid JPEG, PNG, or WebP image.');
+    passportDocumentPath = `${crypto.randomBytes(16).toString('hex')}.${passportExtension}`;
   }
 
-  let appt;
-  try {
-    appt = await tx(async (client) => {
-      const reference = await nextReference('APT', client);
-      const yellowFeverNote = isYellowFeverVisit
-        ? 'Yellow Fever vaccination: passport verified and yellow card certificate to be issued after attendance.'
-        : null;
-      const row = (await client.query(
-        `INSERT INTO appointments
-          (reference, patient_id, patient_name, phone, email, gender, date_of_birth,
-           department_id, doctor_id, service_id, preferred_date, preferred_time,
-           reason, is_emergency, insurance_type, notes, passport_number,
-           passport_document_name, passport_document_path, yellow_fever_vaccination)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-         RETURNING id, reference, status, preferred_date`,
-        [reference, patientId, b.patient_name, b.phone, b.email || null, b.gender || null,
-         b.date_of_birth || null, b.department_id ?? null, b.doctor_id ?? null, b.service_id ?? null,
-         b.preferred_date, b.preferred_time || null, b.reason || null, b.is_emergency ?? false,
-         b.insurance_type || null, [b.notes, yellowFeverNote].filter(Boolean).join('\n') || null,
-         b.passport_number || null, b.passport_document_name || null, passportDocumentPath, isYellowFeverVisit]
-      )).rows[0];
-      await client.query(
-        `INSERT INTO appointment_status_history (appointment_id, to_status, note) VALUES ($1,'PENDING','Submitted online')`,
-        [row.id]);
-      return row;
-    });
-  } catch (error) {
-    if (passportDocumentPath) {
-      await fs.rm(path.join(config.privateDir, 'passports', passportDocumentPath), { force: true });
+  const appt = await tx(async (client) => {
+    const reference = await nextReference('APT', client);
+    const yellowFeverNote = isYellowFeverVisit
+      ? 'Yellow Fever vaccination: passport verified and yellow card certificate to be issued after attendance.'
+      : null;
+    const row = (await client.query(
+      `INSERT INTO appointments
+        (reference, patient_id, patient_name, phone, email, gender, date_of_birth,
+         department_id, doctor_id, service_id, preferred_date, preferred_time,
+         reason, is_emergency, insurance_type, notes, passport_number,
+         passport_document_name, passport_document_path, yellow_fever_vaccination)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       RETURNING id, reference, status, preferred_date`,
+      [reference, patientId, b.patient_name, b.phone, b.email || null, b.gender || null,
+       b.date_of_birth || null, b.department_id ?? null, b.doctor_id ?? null, b.service_id ?? null,
+       b.preferred_date, b.preferred_time || null, b.reason || null, b.is_emergency ?? false,
+       b.insurance_type || null, [b.notes, yellowFeverNote].filter(Boolean).join('\n') || null,
+       b.passport_number || null, b.passport_document_name || null, passportDocumentPath, isYellowFeverVisit]
+    )).rows[0];
+    if (req.file) {
+      await savePassportDocument(client, {
+        appointmentId: row.id,
+        filePath: passportDocumentPath,
+        extension: passportExtension,
+        buffer: req.file.buffer,
+      });
     }
-    throw error;
-  }
+    await client.query(
+      `INSERT INTO appointment_status_history (appointment_id, to_status, note) VALUES ($1,'PENDING','Submitted online')`,
+      [row.id]);
+    return row;
+  });
 
   const details = await one(
     `SELECT d.name AS department, doc.full_name AS doctor, s.name AS service
@@ -248,22 +245,16 @@ appointmentsRouter.get('/:reference/passport', requireAuth, wrap(async (req, res
   if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(row.passport_document_path)) {
     throw fail(404, 'NOT_FOUND', 'The passport image is unavailable.');
   }
-  const extension = row.passport_document_path.split('.').pop();
-  const contentType = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[extension];
-  let image;
-  try {
-    image = await fs.readFile(path.join(config.privateDir, 'passports', row.passport_document_path));
-  } catch (error) {
-    if (error.code === 'ENOENT') throw fail(404, 'NOT_FOUND', 'The passport image is unavailable.');
-    throw error;
-  }
+  const document = await readPassportDocument(row.passport_document_path);
+  if (!document) throw fail(404, 'NOT_FOUND', 'The passport image is unavailable.');
+  const contentType = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[document.extension];
   res.set({
     'Cache-Control': 'private, no-store',
-    'Content-Disposition': `inline; filename="passport-image.${extension}"`,
+    'Content-Disposition': `inline; filename="passport-image.${document.extension}"`,
     'Content-Type': contentType,
     'X-Content-Type-Options': 'nosniff',
   });
-  res.send(image);
+  res.send(document.image);
 }));
 
 // ---- staff list ----
