@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { pool } from '../src/db.js';
+import { config } from '../src/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbDir = path.join(__dirname, '..', 'db');
@@ -10,13 +11,16 @@ const migrations = fs.readdirSync(dbDir).filter(name => /^\d+_.+\.sql$/.test(nam
 
 export async function runMigrations(closePool = true) {
   try {
+    if (config.databaseSchema) {
+      await pool.query(`CREATE SCHEMA IF NOT EXISTS "${config.databaseSchema}"`);
+    }
     await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
       filename VARCHAR(255) PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
     const migrationState = await pool.query('SELECT filename FROM schema_migrations');
-    if (!migrationState.rowCount) {
-      const existingCore = await pool.query("SELECT to_regclass('public.users') AS table_name");
+    if (!migrationState.rowCount && !config.databaseSchema) {
+      const existingCore = await pool.query("SELECT to_regclass('users') AS table_name");
       if (existingCore.rows[0].table_name) {
         const legacyMigrations = migrations.filter(name => Number(name.slice(0, 3)) < 7);
         for (const migration of legacyMigrations) {
