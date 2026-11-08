@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { pool } from './db.js';
 import { errorHandler, ok } from './http.js';
-import { requireAuth } from './auth.js';
+import { hashPassword, requireAuth } from './auth.js';
 import { sseHandler } from './notify.js';
 import { runMigrations } from '../scripts/migrate.js';
 import { authRouter } from './routes/auth.routes.js';
@@ -103,16 +103,59 @@ app.use((req, res) => res.status(404).json({ ok: false, code: 'NOT_FOUND', error
 app.use(errorHandler);
 
 async function startServer() {
+  if (config.env === 'production' && !/^[a-f0-9]{64}$/i.test(config.passportEncryptionKey)) {
+    throw new Error('PASSPORT_ENCRYPTION_KEY must be set to 64 hexadecimal characters in production.');
+  }
   try {
     await runMigrations(false);
+    await bootstrapInitialAdmin();
   } catch (error) {
-    console.error('[adare-platform] migration failed:', error.message);
+    console.error('[adare-platform] startup initialization failed:', error.message);
     throw error;
   }
 
   app.listen(config.port, '0.0.0.0', () => {
     console.log(`[adare-platform] API listening on 0.0.0.0:${config.port} (${config.env})`);
   });
+}
+
+async function bootstrapInitialAdmin() {
+  const username = process.env.BOOTSTRAP_ADMIN_USERNAME || '';
+  const fullName = process.env.BOOTSTRAP_ADMIN_NAME || '';
+  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || '';
+  if (![username, fullName, password].some(Boolean)) return;
+  if (config.env !== 'production') {
+    throw new Error('Initial administrator bootstrap is only available in production.');
+  }
+  if (!username || !fullName || !password || username.length > 60 || fullName.length > 150 || password.length < 16) {
+    throw new Error('Set a valid BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_NAME, and password of at least 16 characters.');
+  }
+
+  const existing = await pool.query(
+    `SELECT u.id, r.code AS role_code FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=$1`,
+    [username]
+  );
+  if (existing.rowCount) {
+    if (existing.rows[0].role_code !== 'super_admin') {
+      throw new Error('The configured bootstrap username already belongs to a non-administrator account.');
+    }
+    console.info('[adare-platform] Initial administrator bootstrap already completed; remove BOOTSTRAP_ADMIN_* variables.');
+    return;
+  }
+
+  const administrators = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE r.code='super_admin' LIMIT 1`
+  );
+  if (administrators.rowCount) {
+    throw new Error('A super administrator already exists; refusing to create another bootstrap account.');
+  }
+
+  await pool.query(
+    `INSERT INTO users (username, full_name, password_hash, role_id)
+     VALUES ($1,$2,$3,(SELECT id FROM roles WHERE code='super_admin'))`,
+    [username, fullName, await hashPassword(password)]
+  );
+  console.info('[adare-platform] Initial super administrator created; remove BOOTSTRAP_ADMIN_* variables.');
 }
 
 startServer();

@@ -14,9 +14,15 @@ if (fs.existsSync(envFile)) {
   }
 }
 
+const databaseSchema = process.env.DATABASE_SCHEMA || '';
+if (databaseSchema && !/^[a-z_][a-z0-9_]*$/.test(databaseSchema)) {
+  throw new Error('DATABASE_SCHEMA must contain only lowercase letters, numbers, and underscores.');
+}
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 4000),
+  databaseSchema,
   databaseUrl: process.env.DATABASE_URL || 'postgres://agh:AghDevPg2026@127.0.0.1:5432/adare_platform',
   jwtSecret: process.env.JWT_SECRET || 'dev-only-jwt-secret-change-in-production',
   refreshSecret: process.env.REFRESH_TOKEN_SECRET || 'dev-only-refresh-secret-change-me',
@@ -24,6 +30,7 @@ export const config = {
   refreshTtlDays: Number(process.env.REFRESH_TTL_DAYS || 14),
   uploadDir: process.env.UPLOAD_DIR || path.join(__dirname, '..', 'storage', 'uploads'),
   privateDir: process.env.PRIVATE_DIR || path.join(__dirname, '..', 'storage', 'private'),
+  passportEncryptionKey: process.env.PASSPORT_ENCRYPTION_KEY || '',
   maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES || 5 * 1024 * 1024),
   loginMaxFails: Number(process.env.LOGIN_MAX_FAILS || 5),
   loginLockMinutes: Number(process.env.LOGIN_LOCK_MINUTES || 15),
