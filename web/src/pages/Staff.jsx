@@ -7,7 +7,11 @@ import HRCredentialsView from '../components/HRCredentialsView.jsx';
 const NAV = [
   ['dashboard', '▦ Dashboard', ['receptionist', 'doctor', 'nurse', 'finance', 'content_manager', 'pharmacy', 'laboratory']],
   ['appointments', '🗓 Appointments', ['receptionist', 'doctor', 'nurse']],
+  ['yellow-fever-appointments', '💉 Yellow Fever appointments', []],
+  ['nursing-daily-report', '📝 Nursing daily report', []],
   ['patients', '👥 Patients', ['receptionist', 'doctor', 'nurse']],
+  ['vaccine-stock', '💉 Vaccine stock', ['pharmacy']],
+  ['vaccine-stock-report', '📋 Vaccine stock report', ['pharmacy', 'finance']],
   ['payments', '₵ Payments', ['finance', 'receptionist']],
   ['news', '📰 News CMS', ['content_manager']],
   ['procurement', '📄 Tenders', ['content_manager']],
@@ -289,11 +293,15 @@ const ACTIONS = {
   IN_CONSULTATION: [['complete', 'Complete', 'btn-navy']],
 };
 
-function AppointmentsView({ toast }) {
+function AppointmentsView({ toast, yellowOnly = false, canVaccinate = false }) {
   const [rows, setRows] = useState(null);
   const [filters, setFilters] = useState({ status: '', date: '', q: '' });
   const [confirmBox, setConfirmBox] = useState(null); // {reference, action}
   const [receipt, setReceipt] = useState(null);
+  const [vaccination, setVaccination] = useState(null);
+  const [vaccineStock, setVaccineStock] = useState([]);
+  const [vaccinationForm, setVaccinationForm] = useState({ stock_receipt_id: '', unit_name: '', yellow_card_certificate_issued: 'yes' });
+  const [passportImage, setPassportImage] = useState(null);
   useEffect(() => {
     if (!receipt) return undefined;
     document.body.classList.add('printing-appointment-receipt');
@@ -302,8 +310,9 @@ function AppointmentsView({ toast }) {
   const load = useCallback(() => {
     const p = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => v && p.set(k, v));
+    if (yellowOnly) p.set('yellow_fever', 'true');
     get(`/appointments?${p}`).then(d => setRows(d.appointments)).catch(e => toast(e.message));
-  }, [filters, toast]);
+  }, [filters, toast, yellowOnly]);
   useEffect(() => { const id = setTimeout(load, 250); return () => clearTimeout(id); }, [load]);
   useEffect(() => {
     const stop = connectEvents((ev) => { if (ev === 'appointment') load(); });
@@ -331,6 +340,50 @@ function AppointmentsView({ toast }) {
       load();
     } catch (e) { toast(e.message); }
   };
+  const beginVaccination = async (appointment) => {
+    try {
+      const data = await get('/appointments/vaccine-stock');
+      setVaccineStock(data.stock || []);
+      if (!data.stock?.length) {
+        toast('No non-expired vaccine doses are available in a pharmacy unit.');
+        return;
+      }
+      setVaccination(appointment);
+      setVaccinationForm({
+        stock_receipt_id: String(data.stock[0].stock_receipt_id),
+        unit_name: data.stock[0].unit_name,
+        yellow_card_certificate_issued: 'yes',
+      });
+    } catch (e) { toast(e.message); }
+  };
+  const recordVaccination = async (event) => {
+    event.preventDefault();
+    try {
+      await post(`/appointments/${vaccination.reference}/vaccination`, {
+        stock_receipt_id: Number(vaccinationForm.stock_receipt_id),
+        unit_name: vaccinationForm.unit_name,
+        yellow_card_certificate_issued: vaccinationForm.yellow_card_certificate_issued === 'yes',
+      });
+      toast(`${vaccination.reference}: vaccine recorded and stock deducted`);
+      setVaccination(null);
+      load();
+    } catch (e) { toast(e.message); }
+  };
+  const viewPassport = async (appointment) => {
+    try {
+      const response = await fetch(`/api/appointments/${appointment.reference}/passport`, {
+        headers: { Authorization: `Bearer ${auth.token}` },
+      });
+      const payload = response.ok ? null : await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'Passport image could not be loaded.');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setPassportImage(current => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { reference: appointment.reference, url };
+      });
+    } catch (e) { toast(e.message); }
+  };
 
   return (
     <>
@@ -351,7 +404,7 @@ function AppointmentsView({ toast }) {
             {rows === null && <tr><td colSpan={7}><div className="skeleton" style={{ height: 60 }} /></td></tr>}
             {rows?.map(a => (
               <tr key={a.reference} style={a.is_emergency ? { background: 'rgba(200,37,44,.05)' } : undefined}>
-                <td className="mono">{a.reference}{a.is_emergency && <><br /><span className="tag red">URGENT</span></>}</td>
+                <td className="mono">{a.reference}{a.yellow_fever_vaccination && <><br /><span className="tag" style={{ background: 'rgba(201,138,40,.16)', color: 'var(--navy)' }}>YELLOW FEVER</span></>}{a.is_emergency && <><br /><span className="tag red">URGENT</span></>}</td>
                 <td><strong>{a.patient_name}</strong><br /><span className="muted mono" style={{ fontSize: 12 }}>{a.phone}</span></td>
                 <td>{a.department || '—'}{a.doctor && <><br /><span className="muted" style={{ fontSize: 13 }}>{a.doctor}</span></>}</td>
                 <td>{String(a.scheduled_date || a.preferred_date).slice(0, 10)}<br /><span className="muted" style={{ fontSize: 12 }}>{a.scheduled_time || a.preferred_time || ''}</span></td>
@@ -360,6 +413,15 @@ function AppointmentsView({ toast }) {
                   {(ACTIONS[a.status] || []).map(([act, label, cls]) => (
                     <button key={act} className={`btn btn-sm ${cls}`} onClick={() => run(a.reference, act)}>{label}</button>
                   ))}
+                  {a.yellow_fever_vaccination && a.passport_document_name && (
+                    <button className="btn btn-outline btn-sm" onClick={() => viewPassport(a)}>Passport image</button>
+                  )}
+                  {canVaccinate && a.yellow_fever_vaccination && ['CHECKED_IN', 'IN_CONSULTATION'].includes(a.status)
+                    && !a.vaccination_administered_at
+                    && <button className="btn btn-navy btn-sm" onClick={() => beginVaccination(a)}>Record vaccine</button>}
+                  {a.yellow_fever_vaccination && a.vaccination_administered_at && (
+                    <span className="status-pill st-COMPLETED">{a.yellow_card_certificate_issued ? 'Yellow card issued' : 'Vaccinated · card pending'}</span>
+                  )}
                 </div></td>
                 <td><button className="btn btn-outline btn-sm no-print" onClick={() => setReceipt(a)}>View / print</button></td>
               </tr>
@@ -412,6 +474,53 @@ function AppointmentsView({ toast }) {
             </p>
             <footer>Adare General Hospital · 046 221 1661 · Emergency services available 24/7</footer>
           </article>
+        </div>
+      )}
+      {vaccination && (
+        <div className="modal-back" role="presentation" onMouseDown={event => {
+          if (event.target === event.currentTarget) setVaccination(null);
+        }}>
+          <form className="modal" onSubmit={recordVaccination} aria-labelledby="vaccination-dialog-title">
+            <h3 id="vaccination-dialog-title">Record Yellow Fever vaccination</h3>
+            <p className="muted" style={{ marginBottom: 16 }}>{vaccination.reference} · {vaccination.patient_name}</p>
+            <div className="field"><label htmlFor="vaccination-stock-batch">Vaccine batch *</label>
+              <select id="vaccination-stock-batch" required value={vaccinationForm.stock_receipt_id}
+                onChange={event => {
+                  const [receiptId, unitName] = event.target.value.split('|');
+                  setVaccinationForm(current => ({ ...current, stock_receipt_id: receiptId, unit_name: unitName }));
+                }}>
+                {vaccineStock.map(batch => <option key={`${batch.stock_receipt_id}-${batch.unit_name}`} value={`${batch.stock_receipt_id}|${batch.unit_name}`}>
+                  {batch.vaccine_name} · {batch.batch_number} · {batch.unit_name} · {batch.available} doses
+                </option>)}
+              </select></div>
+            <div className="field"><label htmlFor="yellow-card-issued">Yellow card certificate issued? *</label>
+              <select id="yellow-card-issued" required value={vaccinationForm.yellow_card_certificate_issued}
+                onChange={event => setVaccinationForm(current => ({ ...current, yellow_card_certificate_issued: event.target.value }))}>
+                <option value="yes">Yes</option><option value="no">No — issue later</option>
+              </select></div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" className="btn btn-outline" onClick={() => setVaccination(null)}>Cancel</button>
+              <button className="btn btn-primary">Confirm vaccination and deduct one dose</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {passportImage && (
+        <div className="modal-back" role="presentation" onMouseDown={event => {
+          if (event.target === event.currentTarget) {
+            URL.revokeObjectURL(passportImage.url);
+            setPassportImage(null);
+          }
+        }}>
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="passport-dialog-title">
+            <h3 id="passport-dialog-title">Passport image · {passportImage.reference}</h3>
+            <img src={passportImage.url} alt="Uploaded passport for Yellow Fever appointment"
+              style={{ display: 'block', maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', margin: '0 auto 16px' }} />
+            <button className="btn btn-outline" onClick={() => {
+              URL.revokeObjectURL(passportImage.url);
+              setPassportImage(null);
+            }}>Close passport image</button>
+          </div>
         </div>
       )}
     </>
@@ -771,6 +880,18 @@ function UsersView({ toast }) {
     try { await patch(`/admin/users/${u.id}`, body); toast('User updated'); load(); }
     catch (e) { toast(e.message); }
   };
+  const setPermission = async (user, permission) => {
+    const body = {
+      yellow_fever_manager: Boolean(user.can_manage_yellow_fever),
+      nursing_daily_report: Boolean(user.can_submit_nursing_daily_report),
+    };
+    body[permission] = !body[permission];
+    try {
+      await patch(`/admin/users/${user.id}/permissions`, body);
+      toast('Staff permissions updated');
+      load();
+    } catch (e) { toast(e.message); }
+  };
   return (
     <>
       <div className="panel">
@@ -789,7 +910,7 @@ function UsersView({ toast }) {
       <div className="panel">
         <h3>Staff accounts</h3>
         <div className="table-wrap"><table>
-          <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Last login</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Last login</th><th>Status</th><th>Actions / assigned access</th></tr></thead>
           <tbody>
             {rows.map(u => (
               <tr key={u.id}>
@@ -799,6 +920,16 @@ function UsersView({ toast }) {
                 <td><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button className="btn btn-outline btn-sm" onClick={() => act(u, 'reset_password')}>Reset pw</button>
                   <button className="btn btn-outline btn-sm" onClick={() => act(u, u.is_active ? 'disable' : 'enable')}>{u.is_active ? 'Disable' : 'Enable'}</button>
+                  <button className={`btn btn-sm ${u.can_manage_yellow_fever ? 'btn-navy' : 'btn-outline'}`}
+                    aria-pressed={u.can_manage_yellow_fever}
+                    onClick={() => setPermission(u, 'yellow_fever_manager')}>
+                    {u.can_manage_yellow_fever ? 'Revoke Yellow Fever access' : 'Grant Yellow Fever access'}
+                  </button>
+                  <button className={`btn btn-sm ${u.can_submit_nursing_daily_report ? 'btn-navy' : 'btn-outline'}`}
+                    aria-pressed={u.can_submit_nursing_daily_report}
+                    onClick={() => setPermission(u, 'nursing_daily_report')}>
+                    {u.can_submit_nursing_daily_report ? 'Revoke nursing report access' : 'Grant nursing report access'}
+                  </button>
                 </div></td>
               </tr>
             ))}
@@ -889,6 +1020,368 @@ function DoctorImagesView({ toast }) {
     } catch (e) { toast(e.message); }
   };
   return <div className="panel"><h3>Doctor images</h3><p className="muted" style={{ marginBottom: 14 }}>Upload the hospital-approved portrait for each doctor. JPEG, PNG and WebP up to 5 MB.</p><div className="table-wrap"><table><thead><tr><th>Doctor</th><th>Current image</th><th>Upload</th></tr></thead><tbody>{rows.map(doctor => <tr key={doctor.id}><td><strong>{doctor.full_name}</strong><br /><span className="muted">{doctor.title}</span></td><td>{doctor.photo_path ? <img src={doctor.photo_path} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: '50%' }} /> : <span className="muted">No photo</span>}</td><td><input type="file" accept="image/jpeg,image/png,image/webp" aria-label={`Upload photo for ${doctor.full_name}`} onChange={e => upload(doctor, e.target.files?.[0])} /></td></tr>)}</tbody></table></div></div>;
+}
+
+function VaccineStockView({ toast }) {
+  const [stock, setStock] = useState([]);
+  const [transfers, setTransfers] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [transferForm, setTransferForm] = useState({ stock_receipt_id: '', unit_name: '', quantity: '', notes: '' });
+  const [form, setForm] = useState({
+    vaccine_name: '', batch_number: '', manufacturer: '', quantity: '',
+    expiry_date: '', received_on: new Date().toISOString().slice(0, 10), notes: '',
+  });
+  const load = useCallback(async () => {
+    try {
+      const [data, transferData] = await Promise.all([
+        get('/admin/vaccine-stock'),
+        get('/admin/vaccine-stock/transfers'),
+      ]);
+      setStock(data.stock || []);
+      setTransfers(transferData.transfers || []);
+    } catch (e) {
+      setError(e.message);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await post('/admin/vaccine-stock', { ...form, quantity: Number(form.quantity) });
+      setForm({
+        vaccine_name: '', batch_number: '', manufacturer: '', quantity: '',
+        expiry_date: '', received_on: new Date().toISOString().slice(0, 10), notes: '',
+      });
+      toast('Vaccine stock received');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const transferStock = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await post('/admin/vaccine-stock/transfers', {
+        ...transferForm,
+        stock_receipt_id: Number(transferForm.stock_receipt_id),
+        quantity: Number(transferForm.quantity),
+      });
+      setTransferForm({ stock_receipt_id: '', unit_name: '', quantity: '', notes: '' });
+      toast('Vaccine stock issued to pharmacy unit');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const availableBatches = stock.filter(batch => Number(batch.central_on_hand) > 0
+    && String(batch.expiry_date).slice(0, 10) >= new Date().toISOString().slice(0, 10));
+
+  return (
+    <>
+      {error && <div className="alert error" role="alert">{error}</div>}
+      <form className="panel" onSubmit={submit}>
+        <h3>Receive vaccine stock</h3>
+        <p className="muted" style={{ marginBottom: 16 }}>Record vaccine deliveries by product and batch. Stock entries are included in the separate vaccine stock report.</p>
+        <div className="form-grid">
+          <div className="field"><label htmlFor="vaccine-name">Vaccine name *</label>
+            <input id="vaccine-name" required maxLength={150} value={form.vaccine_name} onChange={e => setForm(f => ({ ...f, vaccine_name: e.target.value }))} /></div>
+          <div className="field"><label htmlFor="vaccine-batch">Batch / lot number *</label>
+            <input id="vaccine-batch" required maxLength={80} value={form.batch_number} onChange={e => setForm(f => ({ ...f, batch_number: e.target.value }))} /></div>
+          <div className="field"><label htmlFor="vaccine-manufacturer">Manufacturer</label>
+            <input id="vaccine-manufacturer" maxLength={150} value={form.manufacturer} onChange={e => setForm(f => ({ ...f, manufacturer: e.target.value }))} /></div>
+          <div className="field"><label htmlFor="vaccine-quantity">Quantity received *</label>
+            <input id="vaccine-quantity" required type="number" min="1" max="1000000" step="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} /></div>
+          <div className="field"><label htmlFor="vaccine-expiry">Expiry date *</label>
+            <input id="vaccine-expiry" required type="date" min={form.received_on} value={form.expiry_date} onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))} /></div>
+          <div className="field"><label htmlFor="vaccine-received">Received date *</label>
+            <input id="vaccine-received" required type="date" max={new Date().toISOString().slice(0, 10)} value={form.received_on} onChange={e => setForm(f => ({ ...f, received_on: e.target.value }))} /></div>
+          <div className="field full"><label htmlFor="vaccine-notes">Notes</label>
+            <textarea id="vaccine-notes" rows="2" maxLength={500} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+        </div>
+        <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Add vaccine stock'}</button>
+      </form>
+
+      <form className="panel" onSubmit={transferStock} style={{ marginTop: 18 }}>
+        <h3>Issue doses to pharmacy unit</h3>
+        <p className="muted" style={{ marginBottom: 16 }}>Transfers reduce central store balance and add the doses to the selected unit.</p>
+        <div className="form-grid">
+          <div className="field"><label htmlFor="transfer-batch">Vaccine batch *</label>
+            <select id="transfer-batch" required value={transferForm.stock_receipt_id}
+              onChange={e => setTransferForm(f => ({ ...f, stock_receipt_id: e.target.value }))}>
+              <option value="">Select available batch…</option>
+              {availableBatches.map(batch => <option key={batch.id} value={batch.id}>
+                {batch.vaccine_name} · {batch.batch_number} · {Number(batch.central_on_hand)} at central store
+              </option>)}
+            </select></div>
+          <div className="field"><label htmlFor="transfer-unit">Pharmacy unit *</label>
+            <input id="transfer-unit" required minLength={2} maxLength={150} value={transferForm.unit_name}
+              onChange={e => setTransferForm(f => ({ ...f, unit_name: e.target.value }))} placeholder="e.g. OPD Vaccination Unit" /></div>
+          <div className="field"><label htmlFor="transfer-quantity">Quantity issued *</label>
+            <input id="transfer-quantity" required type="number" min="1" step="1" value={transferForm.quantity}
+              onChange={e => setTransferForm(f => ({ ...f, quantity: e.target.value }))} /></div>
+          <div className="field"><label htmlFor="transfer-notes">Notes</label>
+            <input id="transfer-notes" maxLength={500} value={transferForm.notes}
+              onChange={e => setTransferForm(f => ({ ...f, notes: e.target.value }))} /></div>
+        </div>
+        <button className="btn btn-primary" disabled={busy || !availableBatches.length}>{busy ? 'Saving…' : 'Issue to unit'}</button>
+      </form>
+
+      <div className="panel" style={{ marginTop: 18 }}>
+        <h3>Central pharmacy store batches</h3>
+        <div className="table-wrap" style={{ marginTop: 12 }}>
+          <table><thead><tr><th>Vaccine</th><th>Batch</th><th>Manufacturer</th><th>Received</th><th>Central on hand</th><th>Expires</th></tr></thead>
+            <tbody>{stock.map(row => <tr key={row.id}><td>{row.vaccine_name}</td><td className="mono">{row.batch_number}</td><td>{row.manufacturer || '—'}</td><td>{Number(row.quantity).toLocaleString()}</td><td>{Number(row.central_on_hand).toLocaleString()}</td><td>{String(row.expiry_date).slice(0, 10)}</td></tr>)}
+              {!stock.length && <tr><td colSpan="6" className="muted">{error ? 'Unable to load vaccine stock.' : 'No vaccine stock has been recorded yet.'}</td></tr>}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: 18 }}>
+        <h3>Pharmacy unit issue history</h3>
+        <div className="table-wrap" style={{ marginTop: 12 }}>
+          <table><thead><tr><th>Date</th><th>Vaccine</th><th>Batch</th><th>Unit</th><th>Issued</th><th>Issued by</th></tr></thead>
+            <tbody>{transfers.map(transfer => <tr key={transfer.id}><td>{new Date(transfer.created_at).toLocaleDateString()}</td><td>{transfer.vaccine_name}</td><td className="mono">{transfer.batch_number}</td><td>{transfer.unit_name}</td><td>{Number(transfer.quantity).toLocaleString()}</td><td>{transfer.issued_by_name || '—'}</td></tr>)}
+              {!transfers.length && <tr><td colSpan="6" className="muted">No pharmacy-unit transfers recorded.</td></tr>}</tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function VaccineStockReportView({ toast }) {
+  const [report, setReport] = useState(null);
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    setError('');
+    try {
+      setReport(await get('/admin/reports/vaccine-stock'));
+    } catch (e) {
+      setError(e.message);
+      toast(e.message);
+    }
+  }, [toast]);
+  useEffect(() => { load(); }, [load]);
+
+  const downloadCsv = () => {
+    if (!report) return;
+    const rows = [
+      ['Vaccine stock report', `Generated ${new Date(report.generated_at).toLocaleString()}`],
+      [],
+      ['Stock summary'],
+      ['Vaccine', 'Received', 'Central on hand', 'Issued to units', 'Administered', 'Wasted', 'Batches', 'Expired', 'Expiring in 90 days'],
+      ...report.summary.map(row => [row.vaccine_name, row.total_received, row.central_on_hand, row.total_issued_to_units,
+        row.doses_administered, row.doses_wasted, row.batch_count, row.expired_batches, row.expiring_batches]),
+      [],
+      ['Stock by unit'],
+      ['Unit', 'Vaccine', 'Issued', 'On hand', 'Administered', 'Wasted'],
+      ...report.by_unit.map(row => [row.unit_name, row.vaccine_name, row.issued, row.on_hand, row.doses_administered, row.doses_wasted]),
+      [],
+      ['Batch details'],
+      ['Vaccine', 'Batch', 'Manufacturer', 'Received quantity', 'Central on hand', 'Issued to units', 'Administered', 'Wasted', 'Received', 'Expiry', 'Status'],
+      ...report.batches.map(row => [row.vaccine_name, row.batch_number, row.manufacturer || '', row.total_received,
+        row.central_on_hand, row.total_issued_to_units, row.doses_administered, row.doses_wasted,
+        String(row.received_on).slice(0, 10), String(row.expiry_date).slice(0, 10), row.status]),
+    ];
+    const csv = rows.map(row => row.map(value => {
+      const text = String(value ?? '');
+      const safe = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${safe.replaceAll('"', '""')}"`;
+    }).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `adare-vaccine-stock-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  return (
+    <div className="panel report-panel">
+      <div className="report-toolbar no-print">
+        <div><h3>Vaccine stock report</h3><p className="muted">Central store and pharmacy-unit balances, vaccine doses used or wasted, and batch expiry alerts.</p></div>
+        <div className="report-actions">
+          <button className="btn btn-outline btn-sm" disabled={!report} onClick={downloadCsv}>Download CSV</button>
+          <button className="btn btn-outline btn-sm" disabled={!report} onClick={() => window.print()}>Print / Save PDF</button>
+          <button className="btn btn-primary btn-sm" onClick={load}>Refresh</button>
+        </div>
+      </div>
+      {error && <div className="alert error no-print" role="alert">{error}</div>}
+      {report && (
+        <div className="report-print-area">
+          <p className="muted">Report generated: {new Date(report.generated_at).toLocaleString()}</p>
+          <h4 style={{ margin: '18px 0 8px' }}>Stock by vaccine</h4>
+          <div className="table-wrap"><table><thead><tr><th>Vaccine</th><th>Received</th><th>Central on hand</th><th>Issued to units</th><th>Administered</th><th>Wasted</th><th>Batches</th><th>Expired</th><th>Expiring in 90 days</th></tr></thead>
+            <tbody>{report.summary.map(row => <tr key={row.vaccine_name}><td>{row.vaccine_name}</td><td>{Number(row.total_received).toLocaleString()}</td><td>{Number(row.central_on_hand).toLocaleString()}</td><td>{Number(row.total_issued_to_units).toLocaleString()}</td><td>{Number(row.doses_administered).toLocaleString()}</td><td>{Number(row.doses_wasted).toLocaleString()}</td><td>{row.batch_count}</td><td>{row.expired_batches}</td><td>{row.expiring_batches}</td></tr>)}
+              {!report.summary.length && <tr><td colSpan="9" className="muted">No vaccine stock has been recorded.</td></tr>}</tbody>
+          </table></div>
+          <h4 style={{ margin: '22px 0 8px' }}>Stock by pharmacy unit</h4>
+          <div className="table-wrap"><table><thead><tr><th>Unit</th><th>Vaccine</th><th>Issued</th><th>On hand</th><th>Administered</th><th>Wasted</th></tr></thead>
+            <tbody>{report.by_unit.map((row, index) => <tr key={`${row.unit_name}-${row.vaccine_name}-${index}`}><td>{row.unit_name}</td><td>{row.vaccine_name}</td><td>{Number(row.issued).toLocaleString()}</td><td>{Number(row.on_hand).toLocaleString()}</td><td>{Number(row.doses_administered).toLocaleString()}</td><td>{Number(row.doses_wasted).toLocaleString()}</td></tr>)}
+              {!report.by_unit.length && <tr><td colSpan="6" className="muted">No vaccines have been issued to units.</td></tr>}</tbody>
+          </table></div>
+          <h4 style={{ margin: '22px 0 8px' }}>Batch details</h4>
+          <div className="table-wrap"><table><thead><tr><th>Vaccine</th><th>Batch</th><th>Manufacturer</th><th>Received</th><th>Central on hand</th><th>Issued</th><th>Administered</th><th>Wasted</th><th>Expires</th><th>Status</th></tr></thead>
+            <tbody>{report.batches.map(row => <tr key={row.stock_receipt_id}><td>{row.vaccine_name}</td><td className="mono">{row.batch_number}</td><td>{row.manufacturer || '—'}</td><td>{Number(row.total_received).toLocaleString()}</td><td>{Number(row.central_on_hand).toLocaleString()}</td><td>{Number(row.total_issued_to_units).toLocaleString()}</td><td>{Number(row.doses_administered).toLocaleString()}</td><td>{Number(row.doses_wasted).toLocaleString()}</td><td>{String(row.expiry_date).slice(0, 10)}</td><td><span className={`status-pill st-${row.status === 'IN_STOCK' ? 'CONFIRMED' : row.status === 'EXPIRING' ? 'PENDING' : 'REJECTED'}`}>{row.status.replace('_', ' ')}</span></td></tr>)}
+              {!report.batches.length && <tr><td colSpan="10" className="muted">No vaccine batches to report.</td></tr>}</tbody>
+          </table></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NursingDailyReportView({ toast }) {
+  const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reports, setReports] = useState([]);
+  const [stock, setStock] = useState([]);
+  const [units, setUnits] = useState([]);
+  const [dhis2Ready, setDhis2Ready] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    unit_name: '', vaccination_activity: '', adverse_events: '',
+    doses_wasted: '0', waste_stock_receipt_id: '', notes: '',
+  });
+  const load = useCallback(async () => {
+    setError('');
+    try {
+      const [daily, integration] = await Promise.all([
+        get(`/admin/nursing/daily-reports?date=${encodeURIComponent(reportDate)}`),
+        get('/admin/nursing/dhis2-status'),
+      ]);
+      setReports(daily.reports || []);
+      setStock(daily.stock || []);
+      setUnits(daily.units || []);
+      setDhis2Ready(integration.configured);
+      setForm(current => ({
+        ...current,
+        unit_name: daily.units?.some(unit => unit.unit_name === current.unit_name)
+          ? current.unit_name
+          : daily.units?.[0]?.unit_name || '',
+      }));
+    } catch (e) {
+      setError(e.message);
+    }
+  }, [reportDate]);
+  useEffect(() => { load(); }, [load]);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await post('/admin/nursing/daily-reports', {
+        ...form,
+        report_date: reportDate,
+        vaccination_activity: form.vaccination_activity === 'yes',
+        adverse_events: form.adverse_events === 'yes',
+        doses_wasted: Number(form.doses_wasted),
+        waste_stock_receipt_id: form.doses_wasted ? Number(form.waste_stock_receipt_id) || null : null,
+      });
+      toast('Nursing daily report submitted');
+      setForm(current => ({ ...current, vaccination_activity: '', adverse_events: '', doses_wasted: '0', waste_stock_receipt_id: '', notes: '' }));
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const submitToDhis2 = async (report) => {
+    setBusy(true);
+    setError('');
+    try {
+      await post(`/admin/nursing/daily-reports/${report.id}/dhis2`, {});
+      toast('Daily report submitted to DHIS2');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const existingUnitReport = reports.find(report => report.unit_name === form.unit_name);
+  const wasteOptions = stock.filter(batch => batch.unit_name === form.unit_name);
+  const setYesNo = (field) => (event) => setForm(current => ({ ...current, [field]: event.target.value }));
+
+  return (
+    <>
+      <div className="panel">
+        <div className="report-toolbar">
+          <div><h3>Nursing daily Yellow Fever report</h3><p className="muted">Submit a Yes/No daily activity report. Vaccine wastage is deducted from the selected pharmacy-unit batch.</p></div>
+          <label className="field" htmlFor="nursing-report-date">Report date
+            <input id="nursing-report-date" type="date" max={new Date().toISOString().slice(0, 10)} value={reportDate} onChange={event => setReportDate(event.target.value)} />
+          </label>
+        </div>
+        <p className={dhis2Ready ? 'alert success' : 'alert info'} role="status">
+          {dhis2Ready
+            ? 'DHIS2 connection is configured. You can submit saved reports after recording them here.'
+            : 'Reports are saved locally. Live DHIS2 submission is disabled until administrators configure the authorized account and required dataset/data-element UIDs.'}
+        </p>
+        {error && <div className="alert error" role="alert">{error}</div>}
+        {existingUnitReport && (
+          <div className="alert info" role="status">A report for {existingUnitReport.unit_name} has already been submitted for {reportDate} by {existingUnitReport.submitted_by_name}. Select another unit to report.</div>
+        )}
+        <form onSubmit={submit}>
+            <div className="form-grid">
+              <div className="field"><label htmlFor="nursing-report-unit">Pharmacy / vaccination unit *</label>
+                <select id="nursing-report-unit" required value={form.unit_name}
+                  onChange={event => setForm(current => ({ ...current, unit_name: event.target.value, waste_stock_receipt_id: '' }))}>
+                  <option value="">Select a unit…</option>
+                  {units.map(unit => <option key={unit.unit_name} value={unit.unit_name}>{unit.unit_name}</option>)}
+                </select>
+              </div>
+              <fieldset className="field report-yes-no"><legend>Yellow Fever vaccination activity today? *</legend>
+                <label><input type="radio" name="vaccination-activity" value="yes" required checked={form.vaccination_activity === 'yes'} onChange={setYesNo('vaccination_activity')} /> Yes</label>
+                <label><input type="radio" name="vaccination-activity" value="no" required checked={form.vaccination_activity === 'no'} onChange={setYesNo('vaccination_activity')} /> No</label>
+              </fieldset>
+              <fieldset className="field report-yes-no"><legend>Any adverse events reported? *</legend>
+                <label><input type="radio" name="adverse-events" value="yes" required checked={form.adverse_events === 'yes'} onChange={setYesNo('adverse_events')} /> Yes</label>
+                <label><input type="radio" name="adverse-events" value="no" required checked={form.adverse_events === 'no'} onChange={setYesNo('adverse_events')} /> No</label>
+              </fieldset>
+              <div className="field"><label htmlFor="nursing-wasted-doses">Doses wasted</label>
+                <input id="nursing-wasted-doses" type="number" min="0" max="10000" step="1" value={form.doses_wasted}
+                  onChange={event => setForm(current => ({ ...current, doses_wasted: event.target.value, waste_stock_receipt_id: event.target.value ? current.waste_stock_receipt_id : '' }))} /></div>
+              {Number(form.doses_wasted) > 0 && (
+                <div className="field"><label htmlFor="nursing-waste-batch">Wasted vaccine batch *</label>
+                  <select id="nursing-waste-batch" required value={form.waste_stock_receipt_id}
+                    onChange={event => setForm(current => ({ ...current, waste_stock_receipt_id: event.target.value }))}>
+                    <option value="">Select unit batch…</option>
+                    {wasteOptions.map(batch => <option key={batch.stock_receipt_id} value={batch.stock_receipt_id}>
+                      {batch.vaccine_name} · {batch.batch_number} · {batch.available} doses
+                    </option>)}
+                  </select></div>
+              )}
+              <div className="field full"><label htmlFor="nursing-report-notes">Notes</label>
+                <textarea id="nursing-report-notes" rows="3" maxLength={1000} value={form.notes}
+                  onChange={event => setForm(current => ({ ...current, notes: event.target.value }))} /></div>
+            </div>
+          <button className="btn btn-primary" disabled={busy || Boolean(existingUnitReport)}>{busy ? 'Saving…' : 'Submit daily report'}</button>
+        </form>
+      </div>
+      <div className="panel" style={{ marginTop: 18 }}>
+        <h3>Daily reports · {reportDate}</h3>
+        <div className="table-wrap" style={{ marginTop: 12 }}>
+          <table><thead><tr><th>Unit</th><th>Vaccination activity</th><th>Adverse events</th><th>Doses administered</th><th>Doses wasted</th><th>Submitted by</th><th>DHIS2</th><th>Action</th></tr></thead>
+            <tbody>{reports.map(report => <tr key={report.id}><td>{report.unit_name}</td><td>{report.vaccination_activity ? 'Yes' : 'No'}</td><td>{report.adverse_events ? 'Yes' : 'No'}</td><td>{Number(report.doses_administered).toLocaleString()}</td><td>{Number(report.doses_wasted).toLocaleString()}{report.batch_number ? ` · ${report.batch_number}` : ''}</td><td>{report.submitted_by_name}</td><td>{report.dhis2_status === 'SUBMITTED' ? 'Submitted' : 'Not submitted'}</td>
+              <td><button className="btn btn-outline btn-sm" disabled={!dhis2Ready || busy || report.dhis2_status === 'SUBMITTED'} onClick={() => submitToDhis2(report)}>{report.dhis2_status === 'SUBMITTED' ? 'Sent' : 'Submit to DHIS2'}</button></td></tr>)}
+              {!reports.length && <tr><td colSpan="8" className="muted">No nursing reports for this date yet.</td></tr>}</tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
 }
 
 /* -------------------- Reports -------------------- */
@@ -1058,6 +1551,10 @@ export default function Staff() {
   const [view, setView] = useState('dashboard');
   const [sideOpen, setSideOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [staffPermissions, setStaffPermissions] = useState({
+    can_manage_yellow_fever: false,
+    can_submit_nursing_daily_report: false,
+  });
   const [notif, setNotif] = useState({ list: [], unread: 0, open: false });
   const idRef = useRef(0);
 
@@ -1087,17 +1584,37 @@ export default function Staff() {
     const poll = setInterval(loadNotif, 30000); // fallback alongside SSE
     return () => { stop && stop(); clearInterval(poll); };
   }, [signedIn, loadNotif, toast]);
+  useEffect(() => {
+    if (!signedIn) {
+      setStaffPermissions({ can_manage_yellow_fever: false, can_submit_nursing_daily_report: false });
+      return;
+    }
+    get('/admin/my-permissions')
+      .then(setStaffPermissions)
+      .catch(error => toast(`Could not load staff permissions: ${error.message}`));
+  }, [signedIn, toast]);
 
   if (!ready) return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }} className="muted">Loading…</div>;
   if (!signedIn) return <Login onDone={() => setSignedIn(true)} />;
 
   const role = auth.user.role;
-  const items = NAV.filter(([, , roles]) => canSee(role, roles));
+  const items = NAV.filter(([key, , roles]) => {
+    if (key === 'yellow-fever-appointments') return staffPermissions.can_manage_yellow_fever;
+    if (key === 'nursing-daily-report') return staffPermissions.can_submit_nursing_daily_report;
+    return canSee(role, roles);
+  });
+  const canVaccinate = ['nurse', 'super_admin', 'hospital_admin'].includes(role)
+    || staffPermissions.can_submit_nursing_daily_report;
   const signOut = async () => { try { await post('/auth/logout', {}); } catch {} auth.clear(); setSignedIn(false); };
 
   const views = {
-    dashboard: <DashboardView go={setView} toast={toast} />, appointments: <AppointmentsView toast={toast} />,
+    dashboard: <DashboardView go={setView} toast={toast} />,
+    appointments: <AppointmentsView toast={toast} canVaccinate={canVaccinate} />,
+    'yellow-fever-appointments': <AppointmentsView toast={toast} yellowOnly canVaccinate={canVaccinate} />,
+    'nursing-daily-report': <NursingDailyReportView toast={toast} />,
     patients: <PatientsView toast={toast} />, payments: <PaymentsView toast={toast} />,
+    'vaccine-stock': <VaccineStockView toast={toast} />,
+    'vaccine-stock-report': <VaccineStockReportView toast={toast} />,
     news: <NewsView toast={toast} />, messages: <MessagesView toast={toast} />,
     leadership: <LeadershipView toast={toast} />,
     procurement: <ProcurementView toast={toast} />,

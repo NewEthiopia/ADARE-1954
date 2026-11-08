@@ -117,6 +117,24 @@ function AuthView({ onDone }) {
           </button>
           <p className="portal-auth-security">Your account is stored securely on hospital servers.</p>
         </form>
+
+        <section className="portal-yellow-fever-callout" aria-label="Yellow fever vaccination appointment">
+          <div className="portal-yellow-fever-image-wrap">
+            <img
+              src="/yellow-fever-mosquito-photo.png"
+              alt="Close-up photograph of a mosquito for Yellow Fever vaccination"
+            />
+          </div>
+          <div className="portal-yellow-fever-copy">
+            <span className="portal-yellow-fever-kicker">Yellow fever vaccination</span>
+            <h4>Book your vaccination appointment</h4>
+            <p>Travelers and eligible patients must provide passport details, phone number, and availability for vaccination and certificate issuance.</p>
+            <Link to="/appointments?service=yellow-fever-vaccination" className="btn btn-outline portal-yellow-fever-btn">
+              Book yellow fever visit
+            </Link>
+          </div>
+        </section>
+
         <p className="portal-staff-link muted">Hospital staff? <a href="/staff">Sign in to the staff portal</a></p>
       </div>
     </div>
