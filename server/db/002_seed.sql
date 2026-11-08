@@ -63,6 +63,7 @@ INSERT INTO departments (slug, name, name_am, description, location, sort_order)
 INSERT INTO services (slug, name, department_id, description, available_days, working_hours, emergency, bookable) VALUES
  ('emergency-care','Emergency & Trauma Care',(SELECT id FROM departments WHERE slug='emergency-trauma'),'Immediate care for injuries, trauma and sudden medical conditions.','Every day','24 hours',true,false),
  ('general-consultation','General Consultation (OPD)',(SELECT id FROM departments WHERE slug='opd'),'Consultation for new and returning patients with triage and referral.','Mon–Fri','8:00–17:00',false,true),
+ ('yellow-fever-vaccination','Yellow Fever Vaccination',(SELECT id FROM departments WHERE slug='opd'),'Passport verification, vaccine administration, and yellow card certificate issuance for eligible travelers and patients.','Mon–Fri','8:00–17:00',false,true),
  ('antenatal-care','Antenatal Care',(SELECT id FROM departments WHERE slug='mch'),'Pregnancy follow-up, screening and birth planning.','Mon–Fri','8:00–17:00',false,true),
  ('delivery','Delivery Services',(SELECT id FROM departments WHERE slug='mch'),'Safe delivery attended by skilled professionals.','Every day','24 hours',true,false),
  ('immunization','Child Immunization',(SELECT id FROM departments WHERE slug='mch'),'Routine EPI vaccination for infants and children.','Mon–Fri','8:00–12:00',false,true),

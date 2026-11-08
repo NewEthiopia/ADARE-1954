@@ -9,6 +9,7 @@ const init = {
   patient_name: '', phone: '', email: '', gender: '', date_of_birth: '',
   department_id: '', doctor_id: '', service_id: '', preferred_date: '',
   preferred_time: '', reason: '', is_emergency: false, insurance_type: 'none', notes: '',
+  yellow_fever_vaccination: false, passport_number: '', passport_document_name: '',
 };
 
 export default function Appointment() {
@@ -20,6 +21,8 @@ export default function Appointment() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [passportFile, setPassportFile] = useState(null);
+  const [passportPreview, setPassportPreview] = useState('');
   const [ethiopianDate, setEthiopianDate] = useState({ year: '', month: '', day: '' });
   const [status, setStatus] = useState({ reference: '', phone: '', result: null, error: '' });
 
@@ -29,8 +32,63 @@ export default function Appointment() {
     get('/doctors').then(d => setDoctors(d.doctors || []));
     get('/services').then(d => setServices((d.services || []).filter(s => s.bookable)));
   }, []);
+  useEffect(() => () => {
+    if (passportPreview) URL.revokeObjectURL(passportPreview);
+  }, [passportPreview]);
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const yellowFeverService = services.find(s => s.slug === 'yellow-fever-vaccination');
+  const isYellowFeverVisit = form.yellow_fever_vaccination ||
+    (form.service_id && yellowFeverService && Number(form.service_id) === Number(yellowFeverService.id));
+
+  const handleYellowFeverToggle = (e) => {
+    const checked = e.target.checked;
+    setForm(f => ({
+      ...f,
+      yellow_fever_vaccination: checked,
+      service_id: checked && yellowFeverService
+        ? String(yellowFeverService.id)
+        : !checked && yellowFeverService && Number(f.service_id) === Number(yellowFeverService.id)
+          ? ''
+          : f.service_id,
+      passport_number: checked ? f.passport_number : '',
+      passport_document_name: checked ? f.passport_document_name : '',
+    }));
+    if (!checked) {
+      setPassportFile(null);
+      setPassportPreview('');
+    }
+  };
+
+  const handlePassportUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setPassportFile(null);
+      setPassportPreview('');
+      setForm(f => ({ ...f, passport_document_name: '' }));
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Choose a JPEG, PNG, or WebP passport image.');
+      e.target.value = '';
+      setPassportFile(null);
+      setPassportPreview('');
+      setForm(f => ({ ...f, passport_document_name: '' }));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Passport image must be 5 MB or smaller.');
+      e.target.value = '';
+      setPassportFile(null);
+      setPassportPreview('');
+      setForm(f => ({ ...f, passport_document_name: '' }));
+      return;
+    }
+    setError('');
+    setPassportFile(file);
+    setForm(f => ({ ...f, passport_document_name: file ? file.name : '' }));
+    setPassportPreview(URL.createObjectURL(file));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -43,10 +101,16 @@ export default function Appointment() {
         service_id: form.service_id ? Number(form.service_id) : null,
         gender: form.gender || undefined,
         insurance_type: form.insurance_type || undefined,
+        yellow_fever_vaccination: Boolean(form.yellow_fever_vaccination || isYellowFeverVisit),
       };
-      const d = await post('/appointments', body);
+      const requestBody = new FormData();
+      requestBody.append('appointment', JSON.stringify(body));
+      if (passportFile) requestBody.append('passport_document', passportFile);
+      const d = await post('/appointments', requestBody);
       setResult({ ...d.appointment, email: body.email, email_sent: d.email_sent });
       setForm(init);
+      setPassportFile(null);
+      setPassportPreview('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err.message);
@@ -184,10 +248,48 @@ export default function Appointment() {
             </small>
           </div>
           <div className="field"><label htmlFor="ap-time">Preferred time</label>
-            <select id="ap-time" value={form.preferred_time} onChange={set('preferred_time')}>
+            <select id="ap-time" value={form.preferred_time} onChange={set('preferred_time')} required={isYellowFeverVisit}>
               <option value="">Any time</option><option>Morning</option><option>Afternoon</option>
             </select></div>
-          <div className="appointment-form-section full"><span className="appointment-section-number">03</span><h3>Tell us a little more</h3><span>Share anything that will help us prepare for your visit</span></div>
+          <div className="yellow-fever-special-card full">
+            <div className="yellow-fever-special-header">
+              <span className="appointment-section-number">03</span>
+              <div>
+                <h3>Yellow fever vaccination</h3>
+                <span>Bring your passport, be available, and receive the vaccine plus the yellow card certificate.</span>
+              </div>
+            </div>
+            <img
+              className="yellow-fever-appointment-image"
+              src="/yellow-fever-mosquito-photo.png"
+              alt="Close-up photograph of a mosquito for Yellow Fever vaccination"
+            />
+
+            <div className="field full yellow-fever-toggle-row">
+              <input id="ap-yellow-fever" type="checkbox" checked={isYellowFeverVisit} onChange={handleYellowFeverToggle} style={{ width: 'auto' }} />
+              <label htmlFor="ap-yellow-fever" style={{ margin: 0, textTransform: 'none', fontSize: 14 }}>
+                This is a Yellow Fever vaccination appointment. I will attend and receive my yellow card certificate after vaccination.
+              </label>
+            </div>
+
+            {isYellowFeverVisit && (
+              <div className="yellow-fever-fields">
+                <div className="field"><label htmlFor="ap-passport-number">Passport number *</label>
+                  <input id="ap-passport-number" required value={form.passport_number} onChange={set('passport_number')} placeholder="P1234567" maxLength={40} /></div>
+                <div className="field"><label htmlFor="ap-passport-file">Upload passport image *</label>
+                  <input id="ap-passport-file" required type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePassportUpload} />
+                  <small className="muted">JPEG, PNG, or WebP · maximum 5 MB</small>
+                  {form.passport_document_name && (
+                    <div className="passport-image-preview">
+                      {passportPreview && <img src={passportPreview} alt="Selected passport image preview" />}
+                      <small className="muted">Selected image: {form.passport_document_name}</small>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="appointment-form-section full"><span className="appointment-section-number">04</span><h3>Tell us a little more</h3><span>Share anything that will help us prepare for your visit</span></div>
           <div className="field full"><label htmlFor="ap-reason">Reason for visit</label>
             <textarea id="ap-reason" rows={3} maxLength={2000} value={form.reason} onChange={set('reason')} /></div>
           <div className="field full" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

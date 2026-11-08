@@ -22,6 +22,7 @@ adare-platform/
 ├── tests/e2e.sh            64 end-to-end workflow tests
 ├── docker-compose.yml      postgres + api + nginx
 ├── Dockerfile              multi-stage build (SPA → API image)
+├── package.json            Node workspace entry point for hosted deployments
 └── nginx/adare.conf        reverse proxy with SSE + security headers
 ```
 
@@ -45,10 +46,25 @@ cd web && npm install && npx vite
 ## Production (Docker)
 
 ```bash
-export DB_PASSWORD=… JWT_SECRET=… REFRESH_TOKEN_SECRET=…
+export DB_PASSWORD=… JWT_SECRET=… REFRESH_TOKEN_SECRET=… PASSPORT_ENCRYPTION_KEY=…
 docker compose up -d --build
 docker compose exec api node scripts/create-admin.js admin "Hospital Administrator"
 ```
+
+For AletCloud app hosting, use the repository root, Node.js runtime, build command
+`npm run build`, and the default `npm start` command. Configure `DATABASE_URL`,
+`DATABASE_SCHEMA=adare_app`, `JWT_SECRET`, `REFRESH_TOKEN_SECRET`,
+`PASSPORT_ENCRYPTION_KEY`, and `SECURE_COOKIES=1` as server-side environment
+variables. The app creates the isolated schema and applies migrations on startup.
+Set `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_NAME`, and a strong
+`BOOTSTRAP_ADMIN_PASSWORD` only for the first deployment; remove those variables
+after the administrator is created.
+
+Yellow Fever passport images are encrypted with AES-256-GCM and stored in
+`appointment_passport_documents` in PostgreSQL. Generate a 64-character
+hexadecimal `PASSPORT_ENCRYPTION_KEY` and keep it stable and backed up; losing it
+makes stored passport images unrecoverable. The free AletCloud database has a
+1 GiB storage limit, so monitor usage if passport uploads grow.
 
 ## Development
 

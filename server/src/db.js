@@ -3,7 +3,7 @@ import { config } from './config.js';
 
 export const pool = new pg.Pool({
   connectionString: config.databaseUrl,
-  options: '-c client_encoding=WIN1252',
+  options: `-c client_encoding=WIN1252${config.databaseSchema ? ` -c search_path=${config.databaseSchema},public` : ''}`,
   max: 10,
 });
 
