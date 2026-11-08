@@ -64,7 +64,10 @@ export async function tryRefresh() {
 }
 
 export const get = (p) => api(p);
-export const post = (p, body) => api(p, { method: 'POST', body: JSON.stringify(body) });
+export const post = (p, body) => api(p, {
+  method: 'POST',
+  body: body instanceof FormData ? body : JSON.stringify(body),
+});
 export const patch = (p, body) => api(p, { method: 'PATCH', body: JSON.stringify(body) });
 
 // ---- SSE realtime (staff dashboards) ----
